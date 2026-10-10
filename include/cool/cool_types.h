@@ -38,6 +38,20 @@ typedef enum coolMemcpyKind {
     coolMemcpyDefault = 4
 } coolMemcpyKind;
 
+/* 流创建标志，与 cudart 的 cudaStreamFlags 对应。 */
+typedef enum coolStreamFlags {
+    coolStreamDefault = 0x00,
+    coolStreamNonBlocking = 0x01
+} coolStreamFlags;
+
+/* 事件创建标志，与 cudart 的 cudaEventFlags 对应。 */
+typedef enum coolEventFlags {
+    coolEventDefault = 0x00,
+    coolEventBlockingSync = 0x01,
+    coolEventDisableTiming = 0x02,
+    coolEventInterprocess = 0x04
+} coolEventFlags;
+
 /* 3D 维度（grid/block），默认各维为 1。 */
 typedef struct dim3 {
     unsigned int x;

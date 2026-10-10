@@ -9,6 +9,7 @@
  *
  * 阶段 P0 覆盖：版本管理（6.7）、错误处理（6.1）、设备管理（6.2）。
  * 阶段 P1 覆盖：内存管理（6.4，含同步拷贝/填充与页锁定主机内存）。
+ * 阶段 P2 覆盖：流管理、事件管理。
  */
 #ifndef COOL_RUNTIME_API_H
 #define COOL_RUNTIME_API_H
@@ -93,6 +94,56 @@ coolError_t coolMallocHost(void** ptr, size_t size);
 /* 释放页锁定主机内存；ptr 为 NULL 时为空操作。 */
 coolError_t coolFreeHost(void* ptr);
 
+/* ------------------------------------------------------------------ */
+/* 流管理（对应 cudaStreamCreate / cudaStreamSynchronize 等）          */
+/* ------------------------------------------------------------------ */
+
+/* 创建流（默认标志）。结果写入 *stream。 */
+coolError_t coolStreamCreate(coolStream_t* stream);
+
+/* 以 flags 创建流；flags 取值见 coolStreamFlags。 */
+coolError_t coolStreamCreateWithFlags(coolStream_t* stream, unsigned int flags);
+
+/* 以 flags 与优先级创建流。 */
+coolError_t coolStreamCreateWithPriority(coolStream_t* stream, unsigned int flags, int priority);
+
+/* 销毁流；NULL 表示默认流，不可销毁，返回 coolErrorInvalidValue。 */
+coolError_t coolStreamDestroy(coolStream_t stream);
+
+/* 等待流中所有任务完成。NULL 表示默认流。 */
+coolError_t coolStreamSynchronize(coolStream_t stream);
+
+/* 查询流是否完成；未完成返回 coolErrorNotReady。NULL 表示默认流。 */
+coolError_t coolStreamQuery(coolStream_t stream);
+
+/* 令 stream 等待 event。 */
+coolError_t coolStreamWaitEvent(coolStream_t stream, coolEvent_t event);
+
+/* ------------------------------------------------------------------ */
+/* 事件管理（对应 cudaEventCreate / cudaEventRecord 等）              */
+/* ------------------------------------------------------------------ */
+
+/* 创建事件（默认标志）。结果写入 *event。 */
+coolError_t coolEventCreate(coolEvent_t* event);
+
+/* 以 flags 创建事件；flags 取值见 coolEventFlags。 */
+coolError_t coolEventCreateWithFlags(coolEvent_t* event, unsigned int flags);
+
+/* 销毁事件。 */
+coolError_t coolEventDestroy(coolEvent_t event);
+
+/* 在 stream 上记录 event；NULL 表示默认流。 */
+coolError_t coolEventRecord(coolEvent_t event, coolStream_t stream);
+
+/* 等待 event 完成。 */
+coolError_t coolEventSynchronize(coolEvent_t event);
+
+/* 查询 event 是否完成；未完成返回 coolErrorNotReady。 */
+coolError_t coolEventQuery(coolEvent_t event);
+
+/* 计算两个已记录事件之间的毫秒差。 */
+coolError_t coolEventElapsedTime(float* ms, coolEvent_t start, coolEvent_t end);
+
 /*
  * 可选：把 cudart 名称映射到 cool 名称，便于把小型 CUDA 示例
  * 源码直接改跑到 CoolRuntime 上（教学对照用途）。
@@ -117,6 +168,20 @@ coolError_t coolFreeHost(void* ptr);
 #define cudaMemGetInfo coolMemGetInfo
 #define cudaMallocHost coolMallocHost
 #define cudaFreeHost coolFreeHost
+#define cudaStreamCreate coolStreamCreate
+#define cudaStreamCreateWithFlags coolStreamCreateWithFlags
+#define cudaStreamCreateWithPriority coolStreamCreateWithPriority
+#define cudaStreamDestroy coolStreamDestroy
+#define cudaStreamSynchronize coolStreamSynchronize
+#define cudaStreamQuery coolStreamQuery
+#define cudaStreamWaitEvent coolStreamWaitEvent
+#define cudaEventCreate coolEventCreate
+#define cudaEventCreateWithFlags coolEventCreateWithFlags
+#define cudaEventDestroy coolEventDestroy
+#define cudaEventRecord coolEventRecord
+#define cudaEventSynchronize coolEventSynchronize
+#define cudaEventQuery coolEventQuery
+#define cudaEventElapsedTime coolEventElapsedTime
 #endif /* COOL_ENABLE_CUDA_ALIAS */
 
 #ifdef __cplusplus

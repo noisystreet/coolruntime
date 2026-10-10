@@ -17,6 +17,7 @@
 #include <cstring>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "../backend_registry.hpp"
 
@@ -112,6 +113,67 @@ AllocationRegistry& registry() {
     return instance;
 }
 
+/*
+ * 后端侧流/事件句柄注册表。
+ *
+ * 记录本后端创建的流与事件句柄，用于校验销毁（识别未知句柄与重复销毁），
+ * 并在 finalize / deviceReset 时统一清理。宿主并发原语只允许出现在后端，
+ * 故注册表放在后端而非 R 层（见 ADR 0003）。NULL 表示默认流，不登记。
+ */
+class HandleRegistry {
+   public:
+    void addStream(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        streams_.insert(handle);
+    }
+
+    bool hasStream(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return streams_.count(handle) != 0;
+    }
+
+    void removeStream(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        streams_.erase(handle);
+    }
+
+    void addEvent(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        events_.insert(handle);
+    }
+
+    bool hasEvent(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return events_.count(handle) != 0;
+    }
+
+    void removeEvent(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        events_.erase(handle);
+    }
+
+    void clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        streams_.clear();
+        events_.clear();
+    }
+
+   private:
+    std::mutex mutex_;
+    std::unordered_set<std::uintptr_t> streams_;
+    std::unordered_set<std::uintptr_t> events_;
+};
+
+HandleRegistry& handleRegistry() {
+    static HandleRegistry instance;
+    return instance;
+}
+
+/* 把 CUstream / CUevent 与其不透明句柄表示互相转换。 */
+std::uintptr_t handleAddr(const void* handle) {
+    return reinterpret_cast<std::uintptr_t>(handle);
+}
+
 coolError_t cudaInit(void) {
     if (g_initialized) {
         return coolSuccess;
@@ -155,6 +217,7 @@ coolError_t cudaInit(void) {
 
 coolError_t cudaFinalize(void) {
     registry().clear();
+    handleRegistry().clear();
     if (g_ctx != nullptr) {
         cuCtxDestroy(g_ctx);
         g_ctx = nullptr;
@@ -376,6 +439,190 @@ coolError_t cudaFreeHost(void* ptr) {
     return coolSuccess;
 }
 
+coolError_t cudaStreamCreate(coolStream_t* stream, unsigned flags, int priority) {
+    if (stream == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *stream = nullptr;
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    CUstream cuStream = nullptr;
+    const CUresult res = cuStreamCreateWithPriority(&cuStream, flags, priority);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().addStream(handleAddr(cuStream));
+    *stream = reinterpret_cast<coolStream_t>(cuStream);
+    return coolSuccess;
+}
+
+coolError_t cudaStreamDestroy(coolStream_t stream) {
+    if (stream == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    const auto addr = handleAddr(stream);
+    if (!handleRegistry().hasStream(addr)) {
+        return coolErrorInvalidValue;
+    }
+    const CUresult res = cuStreamDestroy(reinterpret_cast<CUstream>(stream));
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().removeStream(addr);
+    return coolSuccess;
+}
+
+coolError_t cudaStreamSynchronize(coolStream_t stream) {
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (stream != nullptr && !handleRegistry().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    return cuResultToCool(cuStreamSynchronize(reinterpret_cast<CUstream>(stream)));
+}
+
+coolError_t cudaStreamQuery(coolStream_t stream) {
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (stream != nullptr && !handleRegistry().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    return cuResultToCool(cuStreamQuery(reinterpret_cast<CUstream>(stream)));
+}
+
+coolError_t cudaStreamWaitEvent(coolStream_t stream, coolEvent_t event) {
+    if (event == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (stream != nullptr && !handleRegistry().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    if (!handleRegistry().hasEvent(handleAddr(event))) {
+        return coolErrorInvalidValue;
+    }
+    return cuResultToCool(cuStreamWaitEvent(reinterpret_cast<CUstream>(stream),
+                                            reinterpret_cast<CUevent>(event), 0));
+}
+
+coolError_t cudaEventCreate(coolEvent_t* event, unsigned flags) {
+    if (event == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *event = nullptr;
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    CUevent cuEvent = nullptr;
+    const CUresult res = cuEventCreate(&cuEvent, flags);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().addEvent(handleAddr(cuEvent));
+    *event = reinterpret_cast<coolEvent_t>(cuEvent);
+    return coolSuccess;
+}
+
+coolError_t cudaEventDestroy(coolEvent_t event) {
+    if (event == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    const auto addr = handleAddr(event);
+    if (!handleRegistry().hasEvent(addr)) {
+        return coolErrorInvalidValue;
+    }
+    const CUresult res = cuEventDestroy(reinterpret_cast<CUevent>(event));
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().removeEvent(addr);
+    return coolSuccess;
+}
+
+coolError_t cudaEventRecord(coolEvent_t event, coolStream_t stream) {
+    if (event == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasEvent(handleAddr(event))) {
+        return coolErrorInvalidValue;
+    }
+    if (stream != nullptr && !handleRegistry().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    return cuResultToCool(cuEventRecord(reinterpret_cast<CUevent>(event),
+                                        reinterpret_cast<CUstream>(stream)));
+}
+
+coolError_t cudaEventSynchronize(coolEvent_t event) {
+    if (event == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasEvent(handleAddr(event))) {
+        return coolErrorInvalidValue;
+    }
+    return cuResultToCool(cuEventSynchronize(reinterpret_cast<CUevent>(event)));
+}
+
+coolError_t cudaEventQuery(coolEvent_t event) {
+    if (event == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasEvent(handleAddr(event))) {
+        return coolErrorInvalidValue;
+    }
+    return cuResultToCool(cuEventQuery(reinterpret_cast<CUevent>(event)));
+}
+
+coolError_t cudaEventElapsedTime(float* ms, coolEvent_t start, coolEvent_t end) {
+    if (ms == nullptr || start == nullptr || end == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasEvent(handleAddr(start)) ||
+        !handleRegistry().hasEvent(handleAddr(end))) {
+        return coolErrorInvalidValue;
+    }
+    return cuResultToCool(cuEventElapsedTime(ms, reinterpret_cast<CUevent>(start),
+                                             reinterpret_cast<CUevent>(end)));
+}
+
 }  // namespace
 
 const coolBackend* cudaBackend() {
@@ -395,17 +642,17 @@ const coolBackend* cudaBackend() {
         cudaMemcpy,               /* memcpy */
         cudaMemset,               /* memset */
         cudaMemGetInfo,           /* memGetInfo */
-        nullptr,                  /* streamCreate */
-        nullptr,                  /* streamDestroy */
-        nullptr,                  /* streamSynchronize */
-        nullptr,                  /* streamQuery */
-        nullptr,                  /* streamWaitEvent */
-        nullptr,                  /* eventCreate */
-        nullptr,                  /* eventDestroy */
-        nullptr,                  /* eventRecord */
-        nullptr,                  /* eventSynchronize */
-        nullptr,                  /* eventQuery */
-        nullptr,                  /* eventElapsedTime */
+        cudaStreamCreate,         /* streamCreate */
+        cudaStreamDestroy,        /* streamDestroy */
+        cudaStreamSynchronize,    /* streamSynchronize */
+        cudaStreamQuery,          /* streamQuery */
+        cudaStreamWaitEvent,      /* streamWaitEvent */
+        cudaEventCreate,          /* eventCreate */
+        cudaEventDestroy,         /* eventDestroy */
+        cudaEventRecord,          /* eventRecord */
+        cudaEventSynchronize,     /* eventSynchronize */
+        cudaEventQuery,           /* eventQuery */
+        cudaEventElapsedTime,     /* eventElapsedTime */
         nullptr,                  /* launchKernel */
         cudaDriverGetVersion,     /* driverGetVersion */
     };

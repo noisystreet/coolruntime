@@ -18,6 +18,10 @@ and this project uses semantic versioning when releases are created.
 - 内存管理接口（P1）：`coolMalloc` / `coolFree` / `coolMemcpy` / `coolMemset` / `coolMemGetInfo` / `coolMallocHost` / `coolFreeHost`。
 - `cuda` 后端内存实现，以及后端侧内存元数据注册表（跟踪设备/主机指针，用于释放校验与重复释放识别）。
 - 内存单元测试 `test_mem`。
+- 流管理接口（P2）：`coolStreamCreate` / `coolStreamCreateWithFlags` / `coolStreamCreateWithPriority` / `coolStreamDestroy` / `coolStreamSynchronize` / `coolStreamQuery` / `coolStreamWaitEvent`。
+- 事件管理接口（P2）：`coolEventCreate` / `coolEventCreateWithFlags` / `coolEventDestroy` / `coolEventRecord` / `coolEventSynchronize` / `coolEventQuery` / `coolEventElapsedTime`。
+- `cuda` 后端流/事件实现，以及后端侧句柄注册表（跟踪流/事件句柄，用于销毁校验与重复销毁识别）。
+- 流/事件单元测试 `test_stream` / `test_event`。
 - 单元测试（version / error / device）与 C ABI 编译校验、`samples/hello` 示例。
 
 ### Changed
