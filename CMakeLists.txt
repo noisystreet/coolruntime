@@ -55,6 +55,7 @@ set(COOLRUNTIME_SOURCES
     src/api/error_api.cpp
     src/api/version_api.cpp
     src/api/device_api.cpp
+    src/api/mem_api.cpp
     src/core/error.cpp
     src/core/lifecycle.cpp
     src/backend/cuda/cuda_backend.cpp)

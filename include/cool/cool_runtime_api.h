@@ -8,6 +8,7 @@
  * 本头文件保持 C 兼容，可被 C、C++ 及 CUDA 示例直接 include。
  *
  * 阶段 P0 覆盖：版本管理（6.7）、错误处理（6.1）、设备管理（6.2）。
+ * 阶段 P1 覆盖：内存管理（6.4，含同步拷贝/填充与页锁定主机内存）。
  */
 #ifndef COOL_RUNTIME_API_H
 #define COOL_RUNTIME_API_H
@@ -67,6 +68,31 @@ coolError_t coolDeviceSynchronize(void);
 /* 释放运行时持有的该设备资源。 */
 coolError_t coolDeviceReset(void);
 
+/* ------------------------------------------------------------------ */
+/* 内存管理（对应 cudaMalloc / cudaMemcpy 等）                        */
+/* ------------------------------------------------------------------ */
+
+/* 分配 size 字节设备内存，结果写入 *ptr；size 为 0 返回 coolErrorInvalidValue。 */
+coolError_t coolMalloc(void** ptr, size_t size);
+
+/* 释放设备内存；ptr 为 NULL 时为空操作。未知或重复释放返回 coolErrorInvalidValue。 */
+coolError_t coolFree(void* ptr);
+
+/* 同步拷贝 count 字节，方向由 kind 指定。 */
+coolError_t coolMemcpy(void* dst, const void* src, size_t count, coolMemcpyKind kind);
+
+/* 将设备内存前 count 字节设为 value 的低 8 位。 */
+coolError_t coolMemset(void* ptr, int value, size_t count);
+
+/* 查询设备内存空闲与总量（字节）。 */
+coolError_t coolMemGetInfo(size_t* freeBytes, size_t* totalBytes);
+
+/* 分配页锁定（pinned）主机内存。 */
+coolError_t coolMallocHost(void** ptr, size_t size);
+
+/* 释放页锁定主机内存；ptr 为 NULL 时为空操作。 */
+coolError_t coolFreeHost(void* ptr);
+
 /*
  * 可选：把 cudart 名称映射到 cool 名称，便于把小型 CUDA 示例
  * 源码直接改跑到 CoolRuntime 上（教学对照用途）。
@@ -84,6 +110,13 @@ coolError_t coolDeviceReset(void);
 #define cudaGetDeviceProperties coolGetDeviceProperties
 #define cudaDeviceSynchronize coolDeviceSynchronize
 #define cudaDeviceReset coolDeviceReset
+#define cudaMalloc coolMalloc
+#define cudaFree coolFree
+#define cudaMemcpy coolMemcpy
+#define cudaMemset coolMemset
+#define cudaMemGetInfo coolMemGetInfo
+#define cudaMallocHost coolMallocHost
+#define cudaFreeHost coolFreeHost
 #endif /* COOL_ENABLE_CUDA_ALIAS */
 
 #ifdef __cplusplus

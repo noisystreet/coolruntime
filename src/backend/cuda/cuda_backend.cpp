@@ -12,8 +12,11 @@
  */
 #include <cuda.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
+#include <unordered_map>
 
 #include "../backend_registry.hpp"
 
@@ -51,6 +54,62 @@ coolError_t ensureContext(void) {
         return coolErrorNotReady;
     }
     return cuResultToCool(cuCtxSetCurrent(g_ctx));
+}
+
+/*
+ * 后端侧内存元数据注册表。
+ *
+ * 记录本后端分配的设备/主机指针及其字节数，用于校验 free（识别未知指针与
+ * 重复释放），并在 finalize / deviceReset 时统一清理。宿主并发原语
+ * （std::mutex）按 AGENTS.md 硬约束只允许出现在后端，故注册表放在后端而非 R 层。
+ */
+class AllocationRegistry {
+   public:
+    void addDevice(std::uintptr_t ptr, size_t size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        device_[ptr] = size;
+    }
+
+    bool hasDevice(std::uintptr_t ptr) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return device_.count(ptr) != 0;
+    }
+
+    void removeDevice(std::uintptr_t ptr) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        device_.erase(ptr);
+    }
+
+    void addHost(std::uintptr_t ptr, size_t size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        host_[ptr] = size;
+    }
+
+    bool hasHost(std::uintptr_t ptr) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return host_.count(ptr) != 0;
+    }
+
+    void removeHost(std::uintptr_t ptr) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        host_.erase(ptr);
+    }
+
+    void clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        device_.clear();
+        host_.clear();
+    }
+
+   private:
+    std::mutex mutex_;
+    std::unordered_map<std::uintptr_t, size_t> device_;
+    std::unordered_map<std::uintptr_t, size_t> host_;
+};
+
+AllocationRegistry& registry() {
+    static AllocationRegistry instance;
+    return instance;
 }
 
 coolError_t cudaInit(void) {
@@ -95,6 +154,7 @@ coolError_t cudaInit(void) {
 }
 
 coolError_t cudaFinalize(void) {
+    registry().clear();
     if (g_ctx != nullptr) {
         cuCtxDestroy(g_ctx);
         g_ctx = nullptr;
@@ -177,6 +237,145 @@ coolError_t cudaDriverGetVersion(int* version) {
     return cuResultToCool(cuDriverGetVersion(version));
 }
 
+coolError_t cudaMalloc(void** ptr, size_t size) {
+    if (ptr == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *ptr = nullptr;
+    if (size == 0) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    CUdeviceptr devicePtr = 0;
+    const CUresult res = cuMemAlloc(&devicePtr, size);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    registry().addDevice(static_cast<std::uintptr_t>(devicePtr), size);
+    *ptr = reinterpret_cast<void*>(devicePtr);
+    return coolSuccess;
+}
+
+coolError_t cudaFree(void* ptr) {
+    if (ptr == nullptr) {
+        return coolSuccess;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    const auto addr = reinterpret_cast<std::uintptr_t>(ptr);
+    if (!registry().hasDevice(addr)) {
+        return coolErrorInvalidValue;
+    }
+    const CUresult res = cuMemFree(static_cast<CUdeviceptr>(addr));
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    registry().removeDevice(addr);
+    return coolSuccess;
+}
+
+coolError_t cudaMemcpy(void* dst, const void* src, size_t count, coolMemcpyKind kind) {
+    if (dst == nullptr || src == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    switch (kind) {
+        case coolMemcpyHostToHost:
+            std::memcpy(dst, src, count);
+            return coolSuccess;
+        case coolMemcpyHostToDevice:
+            return cuResultToCool(cuMemcpyHtoD(reinterpret_cast<CUdeviceptr>(dst), src, count));
+        case coolMemcpyDeviceToHost:
+            return cuResultToCool(cuMemcpyDtoH(dst, reinterpret_cast<CUdeviceptr>(src), count));
+        case coolMemcpyDeviceToDevice:
+            return cuResultToCool(cuMemcpyDtoD(reinterpret_cast<CUdeviceptr>(dst),
+                                               reinterpret_cast<CUdeviceptr>(src), count));
+        case coolMemcpyDefault:
+            return cuResultToCool(cuMemcpy(reinterpret_cast<CUdeviceptr>(dst),
+                                           reinterpret_cast<CUdeviceptr>(src), count));
+        default:
+            return coolErrorInvalidValue;
+    }
+}
+
+coolError_t cudaMemset(void* ptr, int value, size_t count) {
+    if (ptr == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    return cuResultToCool(
+        cuMemsetD8(reinterpret_cast<CUdeviceptr>(ptr), static_cast<unsigned char>(value), count));
+}
+
+coolError_t cudaMemGetInfo(size_t* freeBytes, size_t* totalBytes) {
+    if (freeBytes == nullptr || totalBytes == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    return cuResultToCool(cuMemGetInfo(freeBytes, totalBytes));
+}
+
+coolError_t cudaMallocHost(void** ptr, size_t size, unsigned flags) {
+    if (ptr == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *ptr = nullptr;
+    if (size == 0) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    void* hostPtr = nullptr;
+    const CUresult res = cuMemHostAlloc(&hostPtr, size, flags);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    registry().addHost(reinterpret_cast<std::uintptr_t>(hostPtr), size);
+    *ptr = hostPtr;
+    return coolSuccess;
+}
+
+coolError_t cudaFreeHost(void* ptr) {
+    if (ptr == nullptr) {
+        return coolSuccess;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    const auto addr = reinterpret_cast<std::uintptr_t>(ptr);
+    if (!registry().hasHost(addr)) {
+        return coolErrorInvalidValue;
+    }
+    const CUresult res = cuMemFreeHost(ptr);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    registry().removeHost(addr);
+    return coolSuccess;
+}
+
 }  // namespace
 
 const coolBackend* cudaBackend() {
@@ -189,13 +388,13 @@ const coolBackend* cudaBackend() {
         cudaGetDeviceProperties,  /* getDeviceProperties */
         cudaDeviceSynchronize,    /* deviceSynchronize */
         cudaDeviceReset,          /* deviceReset */
-        nullptr,                  /* malloc */
-        nullptr,                  /* free */
-        nullptr,                  /* mallocHost */
-        nullptr,                  /* freeHost */
-        nullptr,                  /* memcpy */
-        nullptr,                  /* memset */
-        nullptr,                  /* memGetInfo */
+        cudaMalloc,               /* malloc */
+        cudaFree,                 /* free */
+        cudaMallocHost,           /* mallocHost */
+        cudaFreeHost,             /* freeHost */
+        cudaMemcpy,               /* memcpy */
+        cudaMemset,               /* memset */
+        cudaMemGetInfo,           /* memGetInfo */
         nullptr,                  /* streamCreate */
         nullptr,                  /* streamDestroy */
         nullptr,                  /* streamSynchronize */

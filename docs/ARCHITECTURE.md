@@ -43,7 +43,7 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 |--------|----------------|---------------|
 | `src/api` | 公开函数实现、参数校验、错误落地 | `core`、`backend`（仅接口） |
 | `src/core` | 错误状态、生命周期、设备/句柄注册表、追踪 | `backend`（仅接口） |
-| `src/mem` (P1) | 分配器、内存元数据、拷贝/填充 | `core`、`backend` |
+| `src/mem` (P1 未引入) | 内存池/策略按需引入；当前内存 API 位于 `src/api`，元数据注册表在后端（见 [ADR 0002](adr/0002-memory-metadata-registry-placement.md)） | — |
 | `src/exec` (P2) | 流、事件、调度器 | `core`、`backend` |
 | `src/kernel` (P3) | 内核注册表、启动跳板、占用率 | `core`、`backend` |
 | `src/backend` | BAL 契约与后端访问器 | — |
@@ -57,7 +57,7 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 - 上下文：每设备一个隐式主上下文，运行时自动创建；cuda 后端内部即 `CUcontext`。
 - 流：`coolStream_t`（不透明指针），`NULL` = 默认流。
 - 事件：`coolEvent_t`（不透明指针）。
-- 内存块：`void*` 设备指针，内部记录分配元数据。
+- 内存块：`void*` 设备指针，分配元数据由后端注册表记录（见 [ADR 0002](adr/0002-memory-metadata-registry-placement.md)）。
 - 内核：`coolKernel_t`（不透明指针）；cuda 后端内部即 `CUfunction`。
 - 句柄统一为不透明指针，结构体定义仅在内部头可见。
 
