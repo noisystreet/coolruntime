@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ clang-format
+          python -m pip install --upgrade pre-commit
+
+      # CUDA Driver API（cuda.h + libcuda）是构建硬依赖，而 GitHub 托管的
+      # ubuntu-latest 不含 NVIDIA 驱动，无法在 CI 中完成构建与测试。
+      # 因此 CI 只做与 CUDA 无关的格式检查；构建/测试需在具备驱动的环境执行。
+      - name: Run format check
+        run: |
+          make fmt-check
+
+      - name: Run pre-commit
+        run: |
+          pre-commit run --all-files

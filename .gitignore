@@ -1,0 +1,26 @@
+# Build output
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# CMake / tooling
+compile_commands.json
+.cache/
+.clangd/
+*.gcda
+*.gcno
+
+# Local configuration
+.env
+.env.local
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
