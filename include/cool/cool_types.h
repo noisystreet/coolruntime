@@ -80,6 +80,9 @@ typedef struct coolEvent_st* coolEvent_t;
 typedef struct coolKernel coolKernel;
 typedef coolKernel* coolKernel_t;
 
+/* 模块句柄（P3）：cuda 后端内部即 CUmodule。 */
+typedef struct coolModule_st* coolModule_t;
+
 #ifdef __cplusplus
 }
 #endif

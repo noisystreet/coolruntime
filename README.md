@@ -35,9 +35,9 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 - **公开层（C ABI）**：`include/cool/*.h` 保持 C 兼容（`extern "C"` 声明，只用 C 类型），可被 C、C++ 及 CUDA 示例直接 `#include`。
 - **实现层（C++20）**：R/BAL/各后端使用现代 C++（`-std=c++20`）。
 
-## 当前状态（阶段 P0 骨架 + P1 内存 + P2 流/事件）
+## 当前状态（阶段 P0 骨架 + P1 内存 + P2 流/事件 + P3 模块/内核）
 
-已交付：仓库结构、CMake 构建、公开头文件、BAL 接口、cuda 后端（含 `cuInit` + 上下文、内存、流与事件），版本/错误/设备/内存/流/事件的单元测试、`samples/hello`。
+已交付：仓库结构、CMake 构建、公开头文件、BAL 接口、cuda 后端（含 `cuInit` + 上下文、内存、流、事件、模块与内核），版本/错误/设备/内存/流/事件/内核的单元测试、`samples/hello`。
 
 | 已实现 | 说明 |
 | --- | --- |
@@ -47,8 +47,9 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 | 内存管理 | `coolMalloc` / `coolFree` / `coolMemcpy` / `coolMemset` / `coolMemGetInfo` / `coolMallocHost` / `coolFreeHost` |
 | 流管理 | `coolStreamCreate` / `coolStreamCreateWithFlags` / `coolStreamCreateWithPriority` / `coolStreamDestroy` / `coolStreamSynchronize` / `coolStreamQuery` / `coolStreamWaitEvent` |
 | 事件管理 | `coolEventCreate` / `coolEventCreateWithFlags` / `coolEventDestroy` / `coolEventRecord` / `coolEventSynchronize` / `coolEventQuery` / `coolEventElapsedTime` |
+| 模块与内核 | `coolModuleLoadData` / `coolModuleLoadFromFile` / `coolModuleGetFunction` / `coolModuleUnload` / `coolLaunchKernel` / `coolOccupancyMaxActiveBlocksPerMultiprocessor` / `coolOccupancyMaxPotentialBlockSize` |
 
-内核等模块按路线图在后续阶段实现。内存分配的设备/主机指针、以及流/事件句柄，分别由 cuda 后端内的注册表跟踪，用于校验释放/销毁并识别重复操作（宿主并发原语只允许出现在后端，见 [ADR 0002](docs/adr/0002-memory-metadata-registry-placement.md) 与 [ADR 0003](docs/adr/0003-stream-event-handle-registry-placement.md)）。
+内存分配的设备/主机指针、流/事件句柄、以及模块/函数句柄，均由 cuda 后端内的注册表跟踪，用于校验释放/销毁并识别重复操作（宿主并发原语只允许出现在后端，见 [ADR 0002](docs/adr/0002-memory-metadata-registry-placement.md)、[ADR 0003](docs/adr/0003-stream-event-handle-registry-placement.md) 与 [ADR 0004](docs/adr/0004-kernel-module-api-placement.md)）。
 
 ## 构建与测试
 

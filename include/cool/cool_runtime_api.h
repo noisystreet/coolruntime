@@ -10,6 +10,7 @@
  * 阶段 P0 覆盖：版本管理（6.7）、错误处理（6.1）、设备管理（6.2）。
  * 阶段 P1 覆盖：内存管理（6.4，含同步拷贝/填充与页锁定主机内存）。
  * 阶段 P2 覆盖：流管理、事件管理。
+ * 阶段 P3 覆盖：模块与内核启动。
  */
 #ifndef COOL_RUNTIME_API_H
 #define COOL_RUNTIME_API_H
@@ -143,6 +144,39 @@ coolError_t coolEventQuery(coolEvent_t event);
 
 /* 计算两个已记录事件之间的毫秒差。 */
 coolError_t coolEventElapsedTime(float* ms, coolEvent_t start, coolEvent_t end);
+
+/* ------------------------------------------------------------------ */
+/* 模块与内核（对应 cuModuleLoadData / cuModuleGetFunction 等 Driver API） */
+/* ------------------------------------------------------------------ */
+
+/* 从内存映像载入模块（PTX 文本或 cubin），驱动负责 JIT/加载。结果写入 *module。 */
+coolError_t coolModuleLoadData(coolModule_t* module, const void* image);
+
+/* 从文件载入模块（对应 cuModuleLoad）。结果写入 *module。 */
+coolError_t coolModuleLoadFromFile(coolModule_t* module, const char* path);
+
+/* 按符号名从模块取内核句柄（对应 cuModuleGetFunction）。结果写入 *kernel。 */
+coolError_t coolModuleGetFunction(coolKernel_t* kernel, coolModule_t module, const char* name);
+
+/* 卸载模块（对应 cuModuleUnload）。 */
+coolError_t coolModuleUnload(coolModule_t module);
+
+/*
+ * 启动内核（对应 cuLaunchKernel 的启动跳板）。
+ * args 直接透传（与 cuLaunchKernel 的 kernelParams 语义一致，不做参数类型推导）；
+ * stream 为 NULL 时使用默认流。
+ */
+coolError_t coolLaunchKernel(coolKernel_t kernel, dim3 grid, dim3 block, void** args,
+                             size_t sharedMem, coolStream_t stream);
+
+/* 查询每 SM 最大活跃块数（对应 cuOccupancyMaxActiveBlocksPerMultiprocessor）。 */
+coolError_t coolOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlocks, coolKernel_t kernel,
+                                                          int blockSize, size_t dynamicSMemSize);
+
+/* 查询推荐 block 大小与对应最小 grid 大小（对应 cuOccupancyMaxPotentialBlockSize）。 */
+coolError_t coolOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize,
+                                               coolKernel_t kernel, size_t dynamicSMemSize,
+                                               int blockSizeLimit);
 
 /*
  * 可选：把 cudart 名称映射到 cool 名称，便于把小型 CUDA 示例

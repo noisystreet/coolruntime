@@ -57,9 +57,18 @@ typedef struct coolBackend {
     coolError_t (*eventQuery)(coolEvent_t e);
     coolError_t (*eventElapsedTime)(float* ms, coolEvent_t start, coolEvent_t end);
 
-    /* 内核 */
+    /* 模块与内核 */
+    coolError_t (*moduleLoadData)(coolModule_t* m, const void* image);
+    coolError_t (*moduleLoadFromFile)(coolModule_t* m, const char* path);
+    coolError_t (*moduleGetFunction)(coolKernel_t* k, coolModule_t m, const char* name);
+    coolError_t (*moduleUnload)(coolModule_t m);
     coolError_t (*launchKernel)(const coolKernel* k, dim3 grid, dim3 block, void** args,
                                 size_t sharedMem, coolStream_t s);
+    coolError_t (*occupancyMaxActiveBlocksPerMultiprocessor)(int* numBlocks, const coolKernel* k,
+                                                             int blockSize, size_t dynamicSMemSize);
+    coolError_t (*occupancyMaxPotentialBlockSize)(int* minGridSize, int* blockSize,
+                                                  const coolKernel* k, size_t dynamicSMemSize,
+                                                  int blockSizeLimit);
 
     /*
      * 扩展成员：BAL 契约未列出驱动版本查询，但版本管理要求

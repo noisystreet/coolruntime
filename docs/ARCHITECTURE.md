@@ -45,7 +45,7 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 | `src/core` | 错误状态、生命周期、设备/句柄注册表、追踪 | `backend`（仅接口） |
 | `src/mem` (P1 未引入) | 内存池/策略按需引入；当前内存 API 位于 `src/api`，元数据注册表在后端（见 [ADR 0002](adr/0002-memory-metadata-registry-placement.md)） | — |
 | `src/exec` (P2 未引入) | 调度器按需引入；当前流/事件 API 位于 `src/api`，句柄状态在后端（见 [ADR 0003](adr/0003-stream-event-handle-registry-placement.md)） | — |
-| `src/kernel` (P3) | 内核注册表、启动跳板、占用率 | `core`、`backend` |
+| `src/kernel` (P3 未引入) | 内核注册表按需引入；当前模块/内核 API 位于 `src/api`，函数句柄状态在后端（见 [ADR 0004](adr/0004-kernel-module-api-placement.md)） | — |
 | `src/backend` | BAL 契约与后端访问器 | — |
 | `src/backend/cuda` | CUDA Driver API 后端（`cuXxx`） | `backend`（BAL 契约） |
 

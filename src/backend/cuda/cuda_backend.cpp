@@ -114,11 +114,15 @@ AllocationRegistry& registry() {
 }
 
 /*
- * 后端侧流/事件句柄注册表。
+ * 后端侧流/事件/模块/函数句柄注册表。
  *
- * 记录本后端创建的流与事件句柄，用于校验销毁（识别未知句柄与重复销毁），
- * 并在 finalize / deviceReset 时统一清理。宿主并发原语只允许出现在后端，
- * 故注册表放在后端而非 R 层（见 ADR 0003）。NULL 表示默认流，不登记。
+ * 记录本后端创建的流、事件、模块与内核函数句柄，用于校验销毁/卸载
+ * （识别未知句柄、重复销毁、仍在使用的句柄），并在 finalize / deviceReset 时
+ * 统一清理。宿主并发原语只允许出现在后端，故注册表放在后端而非 R 层
+ * （见 ADR 0003、ADR 0004）。NULL 表示默认流，不登记。
+ *
+ * 函数句柄归属其模块：卸载模块时级联移除该模块的所有函数，
+ * 避免模块卸载后仍可启动已失效的内核。
  */
 class HandleRegistry {
    public:
@@ -152,16 +156,53 @@ class HandleRegistry {
         events_.erase(handle);
     }
 
+    void addModule(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        modules_.insert(handle);
+    }
+
+    bool hasModule(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return modules_.count(handle) != 0;
+    }
+
+    /* 移除模块并级联移除其拥有的所有函数句柄。 */
+    void removeModule(std::uintptr_t handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        modules_.erase(handle);
+        for (auto it = functions_.begin(); it != functions_.end();) {
+            if (it->second == handle) {
+                it = functions_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    void addFunction(std::uintptr_t func, std::uintptr_t module) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        functions_[func] = module;
+    }
+
+    bool hasFunction(std::uintptr_t func) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return functions_.count(func) != 0;
+    }
+
     void clear() {
         std::lock_guard<std::mutex> lock(mutex_);
         streams_.clear();
         events_.clear();
+        modules_.clear();
+        functions_.clear();
     }
 
    private:
     std::mutex mutex_;
     std::unordered_set<std::uintptr_t> streams_;
     std::unordered_set<std::uintptr_t> events_;
+    std::unordered_set<std::uintptr_t> modules_;
+    std::unordered_map<std::uintptr_t, std::uintptr_t> functions_;
 };
 
 HandleRegistry& handleRegistry() {
@@ -212,6 +253,15 @@ coolError_t cudaInit(void) {
     }
 
     g_initialized = true;
+
+    /*
+     * 预构造两个注册表：它们的析构在生命周期末尾由静态析构器执行。
+     * lifecycle 在本函数返回后才注册 atexit(finalizeAtExit)，故先在此处构造
+     * 可保证析构顺序为 finalizeAtExit 先、注册表后，避免 finalizeAtExit 访问
+     * 已析构的静态对象（静态析构顺序问题）。
+     */
+    registry();
+    handleRegistry();
     return coolSuccess;
 }
 
@@ -516,8 +566,8 @@ coolError_t cudaStreamWaitEvent(coolStream_t stream, coolEvent_t event) {
     if (!handleRegistry().hasEvent(handleAddr(event))) {
         return coolErrorInvalidValue;
     }
-    return cuResultToCool(cuStreamWaitEvent(reinterpret_cast<CUstream>(stream),
-                                            reinterpret_cast<CUevent>(event), 0));
+    return cuResultToCool(
+        cuStreamWaitEvent(reinterpret_cast<CUstream>(stream), reinterpret_cast<CUevent>(event), 0));
 }
 
 coolError_t cudaEventCreate(coolEvent_t* event, unsigned flags) {
@@ -575,8 +625,8 @@ coolError_t cudaEventRecord(coolEvent_t event, coolStream_t stream) {
     if (stream != nullptr && !handleRegistry().hasStream(handleAddr(stream))) {
         return coolErrorInvalidValue;
     }
-    return cuResultToCool(cuEventRecord(reinterpret_cast<CUevent>(event),
-                                        reinterpret_cast<CUstream>(stream)));
+    return cuResultToCool(
+        cuEventRecord(reinterpret_cast<CUevent>(event), reinterpret_cast<CUstream>(stream)));
 }
 
 coolError_t cudaEventSynchronize(coolEvent_t event) {
@@ -619,42 +669,195 @@ coolError_t cudaEventElapsedTime(float* ms, coolEvent_t start, coolEvent_t end) 
         !handleRegistry().hasEvent(handleAddr(end))) {
         return coolErrorInvalidValue;
     }
-    return cuResultToCool(cuEventElapsedTime(ms, reinterpret_cast<CUevent>(start),
-                                             reinterpret_cast<CUevent>(end)));
+    return cuResultToCool(
+        cuEventElapsedTime(ms, reinterpret_cast<CUevent>(start), reinterpret_cast<CUevent>(end)));
+}
+
+coolError_t cudaModuleLoadData(coolModule_t* module, const void* image) {
+    if (module == nullptr || image == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *module = nullptr;
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    CUmodule cuModule = nullptr;
+    const CUresult res = cuModuleLoadData(&cuModule, image);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().addModule(handleAddr(cuModule));
+    *module = reinterpret_cast<coolModule_t>(cuModule);
+    return coolSuccess;
+}
+
+coolError_t cudaModuleLoadFromFile(coolModule_t* module, const char* path) {
+    if (module == nullptr || path == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *module = nullptr;
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    CUmodule cuModule = nullptr;
+    const CUresult res = cuModuleLoad(&cuModule, path);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().addModule(handleAddr(cuModule));
+    *module = reinterpret_cast<coolModule_t>(cuModule);
+    return coolSuccess;
+}
+
+coolError_t cudaModuleGetFunction(coolKernel_t* kernel, coolModule_t module, const char* name) {
+    if (kernel == nullptr || module == nullptr || name == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *kernel = nullptr;
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    const auto moduleAddr = handleAddr(module);
+    if (!handleRegistry().hasModule(moduleAddr)) {
+        return coolErrorInvalidValue;
+    }
+
+    CUfunction cuFunc = nullptr;
+    const CUresult res = cuModuleGetFunction(&cuFunc, reinterpret_cast<CUmodule>(module), name);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().addFunction(handleAddr(cuFunc), moduleAddr);
+    *kernel = reinterpret_cast<coolKernel_t>(cuFunc);
+    return coolSuccess;
+}
+
+coolError_t cudaModuleUnload(coolModule_t module) {
+    if (module == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+
+    const auto moduleAddr = handleAddr(module);
+    if (!handleRegistry().hasModule(moduleAddr)) {
+        return coolErrorInvalidValue;
+    }
+    const CUresult res = cuModuleUnload(reinterpret_cast<CUmodule>(module));
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    handleRegistry().removeModule(moduleAddr);
+    return coolSuccess;
+}
+
+coolError_t cudaLaunchKernel(const coolKernel* kernel, dim3 grid, dim3 block, void** args,
+                             size_t sharedMem, coolStream_t stream) {
+    if (kernel == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasFunction(handleAddr(kernel))) {
+        return coolErrorInvalidValue;
+    }
+    if (stream != nullptr && !handleRegistry().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+
+    CUfunction func = reinterpret_cast<CUfunction>(const_cast<coolKernel*>(kernel));
+    return cuResultToCool(cuLaunchKernel(func, grid.x, grid.y, grid.z, block.x, block.y, block.z,
+                                         static_cast<unsigned int>(sharedMem),
+                                         reinterpret_cast<CUstream>(stream), args, nullptr));
+}
+
+coolError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlocks, const coolKernel* kernel,
+                                                          int blockSize, size_t dynamicSMemSize) {
+    if (numBlocks == nullptr || kernel == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasFunction(handleAddr(kernel))) {
+        return coolErrorInvalidValue;
+    }
+
+    CUfunction func = reinterpret_cast<CUfunction>(const_cast<coolKernel*>(kernel));
+    return cuResultToCool(
+        cuOccupancyMaxActiveBlocksPerMultiprocessor(numBlocks, func, blockSize, dynamicSMemSize));
+}
+
+coolError_t cudaOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize,
+                                               const coolKernel* kernel, size_t dynamicSMemSize,
+                                               int blockSizeLimit) {
+    if (minGridSize == nullptr || blockSize == nullptr || kernel == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasFunction(handleAddr(kernel))) {
+        return coolErrorInvalidValue;
+    }
+
+    CUfunction func = reinterpret_cast<CUfunction>(const_cast<coolKernel*>(kernel));
+    return cuResultToCool(cuOccupancyMaxPotentialBlockSize(
+        minGridSize, blockSize, func, [](int) -> size_t { return 0; }, dynamicSMemSize,
+        blockSizeLimit));
 }
 
 }  // namespace
 
 const coolBackend* cudaBackend() {
     static const coolBackend backend = {
-        "cuda",                   /* name */
-        COOL_BACKEND_API_VERSION, /* apiVersion */
-        cudaInit,                 /* init */
-        cudaFinalize,             /* finalize */
-        cudaGetDeviceCount,       /* getDeviceCount */
-        cudaGetDeviceProperties,  /* getDeviceProperties */
-        cudaDeviceSynchronize,    /* deviceSynchronize */
-        cudaDeviceReset,          /* deviceReset */
-        cudaMalloc,               /* malloc */
-        cudaFree,                 /* free */
-        cudaMallocHost,           /* mallocHost */
-        cudaFreeHost,             /* freeHost */
-        cudaMemcpy,               /* memcpy */
-        cudaMemset,               /* memset */
-        cudaMemGetInfo,           /* memGetInfo */
-        cudaStreamCreate,         /* streamCreate */
-        cudaStreamDestroy,        /* streamDestroy */
-        cudaStreamSynchronize,    /* streamSynchronize */
-        cudaStreamQuery,          /* streamQuery */
-        cudaStreamWaitEvent,      /* streamWaitEvent */
-        cudaEventCreate,          /* eventCreate */
-        cudaEventDestroy,         /* eventDestroy */
-        cudaEventRecord,          /* eventRecord */
-        cudaEventSynchronize,     /* eventSynchronize */
-        cudaEventQuery,           /* eventQuery */
-        cudaEventElapsedTime,     /* eventElapsedTime */
-        nullptr,                  /* launchKernel */
-        cudaDriverGetVersion,     /* driverGetVersion */
+        "cuda",                                        /* name */
+        COOL_BACKEND_API_VERSION,                      /* apiVersion */
+        cudaInit,                                      /* init */
+        cudaFinalize,                                  /* finalize */
+        cudaGetDeviceCount,                            /* getDeviceCount */
+        cudaGetDeviceProperties,                       /* getDeviceProperties */
+        cudaDeviceSynchronize,                         /* deviceSynchronize */
+        cudaDeviceReset,                               /* deviceReset */
+        cudaMalloc,                                    /* malloc */
+        cudaFree,                                      /* free */
+        cudaMallocHost,                                /* mallocHost */
+        cudaFreeHost,                                  /* freeHost */
+        cudaMemcpy,                                    /* memcpy */
+        cudaMemset,                                    /* memset */
+        cudaMemGetInfo,                                /* memGetInfo */
+        cudaStreamCreate,                              /* streamCreate */
+        cudaStreamDestroy,                             /* streamDestroy */
+        cudaStreamSynchronize,                         /* streamSynchronize */
+        cudaStreamQuery,                               /* streamQuery */
+        cudaStreamWaitEvent,                           /* streamWaitEvent */
+        cudaEventCreate,                               /* eventCreate */
+        cudaEventDestroy,                              /* eventDestroy */
+        cudaEventRecord,                               /* eventRecord */
+        cudaEventSynchronize,                          /* eventSynchronize */
+        cudaEventQuery,                                /* eventQuery */
+        cudaEventElapsedTime,                          /* eventElapsedTime */
+        cudaModuleLoadData,                            /* moduleLoadData */
+        cudaModuleLoadFromFile,                        /* moduleLoadFromFile */
+        cudaModuleGetFunction,                         /* moduleGetFunction */
+        cudaModuleUnload,                              /* moduleUnload */
+        cudaLaunchKernel,                              /* launchKernel */
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor, /* occupancyMaxActiveBlocksPerMultiprocessor
+                                                        */
+        cudaOccupancyMaxPotentialBlockSize,            /* occupancyMaxPotentialBlockSize */
+        cudaDriverGetVersion,                          /* driverGetVersion */
     };
     return &backend;
 }
