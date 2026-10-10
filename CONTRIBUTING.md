@@ -1,6 +1,6 @@
 # Contributing
 
-感谢为 CoolRuntime 贡献代码。
+感谢为 COOLRuntime 贡献代码。
 
 ## Setup
 

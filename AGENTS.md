@@ -2,7 +2,7 @@
 
 ## Project Identity
 
-- Project: CoolRuntime
+- Project: COOLRuntime
 - Purpose: 教学 / 研究用的**类 CUDA** 运行时 API 参考实现，公开前缀 `cool`
 - Tech stack: CMake（≥ 3.15）、公开层 C ABI、实现层 C++20、CTest、clang-format、clang-tidy
 - Target runtime/platform: Linux（x86_64），GCC/Clang；CUDA Driver API（libcuda，必需）

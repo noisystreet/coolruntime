@@ -1,6 +1,6 @@
-# CoolRuntime
+# COOLRuntime
 
-CoolRuntime 是一个**教学 / 研究用**的参考实现，提供一套**类 CUDA（CUDA-like）**的运行时 API，公开接口前缀为 `cool`（如 `cudaMalloc` → `coolMalloc`）。它在设计上借鉴 NVIDIA CUDA Runtime API（cudart），但**并非 cudart 的复刻或兼容实现**。
+COOLRuntime 是一个**教学 / 研究用**的参考实现，提供一套**类 CUDA（CUDA-like）**的运行时 API，公开接口前缀为 `cool`（如 `cudaMalloc` → `coolMalloc`）。它在设计上借鉴 NVIDIA CUDA Runtime API（cudart），但**并非 cudart 的复刻或兼容实现**。
 
 目标不是复刻 CUDA 的性能，而是：
 

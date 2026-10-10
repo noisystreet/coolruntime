@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /* 版本管理测试：coolRuntimeGetVersion / coolDriverGetVersion。 */

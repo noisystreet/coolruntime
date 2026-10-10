@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /*
- * CoolRuntime 版本宏。
+ * COOLRuntime 版本宏。
  *
  * 库版本 = 编译期宏（本文件）；运行时版本 = coolRuntimeGetVersion()。
  * 与 cudart 的 CUDA_VERSION 编码习惯保持一致：MAJOR*1000 + MINOR*10 + PATCH。

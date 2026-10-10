@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /*
- * CoolRuntime 公开 API（A 层）。
+ * COOLRuntime 公开 API（A 层）。
  *
  * 与 CUDA Runtime API（cudart）命名一一对应：cudaXxx -> coolXxx。
  * 本头文件保持 C 兼容，可被 C、C++ 及 CUDA 示例直接 include。
@@ -180,7 +180,7 @@ coolError_t coolOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize,
 
 /*
  * 可选：把 cudart 名称映射到 cool 名称，便于把小型 CUDA 示例
- * 源码直接改跑到 CoolRuntime 上（教学对照用途）。
+ * 源码直接改跑到 COOLRuntime 上（教学对照用途）。
  */
 #ifdef COOL_ENABLE_CUDA_ALIAS
 #define cudaRuntimeGetVersion coolRuntimeGetVersion

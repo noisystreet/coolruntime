@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /*
- * CoolRuntime 统一入口头（umbrella header）。
+ * COOLRuntime 统一入口头（umbrella header）。
  *
  * 对应 cudart 的 cuda_runtime.h：聚合公开类型、版本宏与运行时 API，
  * 使用者通常只需 #include "cool_runtime.h"。

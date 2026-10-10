@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-CoolRuntime 提供一套**类 CUDA** 的运行时 API（命名与 cudart 的 `cudaXxx` 约定相接近）。cudart 的公开接口是纯 C ABI（`cudaXxx`），可被 C、C++ 及 CUDA 示例直接调用；而实现其语义（上下文、流队列、错误状态、后端起落）用现代 C++ 能显著提升可读性与安全性。
+COOLRuntime 提供一套**类 CUDA** 的运行时 API（命名与 cudart 的 `cudaXxx` 约定相接近）。cudart 的公开接口是纯 C ABI（`cudaXxx`），可被 C、C++ 及 CUDA 示例直接调用；而实现其语义（上下文、流队列、错误状态、后端起落）用现代 C++ 能显著提升可读性与安全性。
 
 需要明确：公开头文件的 ABI 形态、内部实现语言，以及两者的边界。
 

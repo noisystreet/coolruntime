@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /*
- * CoolRuntime 公开类型体系（C ABI）。
+ * COOLRuntime 公开类型体系（C ABI）。
  *
  * 本头文件必须保持 C 兼容：只使用 C 类型，禁止 STL / 模板 / 引用。
  * 句柄统一为不透明指针，结构体定义只在内部头文件可见。

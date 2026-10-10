@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /* hello：最小可运行示例，打印版本与设备信息。 */
@@ -9,7 +9,7 @@
 int main() {
     int version = 0;
     if (coolRuntimeGetVersion(&version) == coolSuccess) {
-        std::printf("CoolRuntime version: %d\n", version);
+        std::printf("COOLRuntime version: %d\n", version);
     }
 
     int count = 0;

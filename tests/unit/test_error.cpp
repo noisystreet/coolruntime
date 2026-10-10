@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /* 错误处理测试：错误字符串、last error 的读取/清空语义。 */

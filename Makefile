@@ -1,4 +1,4 @@
-# CoolRuntime developer entry point.
+# COOLRuntime developer entry point.
 # Quality gate used by pre-commit and CI: `make check`.
 
 BUILD_DIR ?= build

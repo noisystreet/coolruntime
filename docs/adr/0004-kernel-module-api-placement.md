@@ -23,7 +23,7 @@ P3 阶段需要实现内核（kernel）相关能力。与 P1/P2 不同，此处�
 
 采用与 CUDA Driver API 一一对应的显式模块模型，内核映像由外部工具产出、运行时只负责载入与启动：
 
-| CoolRuntime API | 对应 Driver API | 说明 |
+| COOLRuntime API | 对应 Driver API | 说明 |
 | --- | --- | --- |
 | `coolModuleLoadData(coolModule_t* module, const void* image)` | `cuModuleLoadData` | 从内存载入模块（PTX 文本或 cubin 映像），驱动负责 JIT/加载 |
 | `coolModuleLoadFromFile(coolModule_t* module, const char* path)` | `cuModuleLoad` | 从文件载入模块 |

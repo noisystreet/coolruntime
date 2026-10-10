@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 CoolRuntime contributors
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
 // SPDX-License-Identifier: MIT
 
 /* 流管理测试：在 cuda 后端下运行（需要可用的 NVIDIA 驱动）。 */

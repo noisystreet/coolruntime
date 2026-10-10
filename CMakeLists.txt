@@ -41,11 +41,11 @@ find_library(CUDA_DRIVER_LIBRARY NAMES cuda)
 
 if(NOT CUDA_INCLUDE_DIR OR NOT CUDA_DRIVER_LIBRARY)
     message(FATAL_ERROR
-        "CoolRuntime requires the CUDA Driver API: cuda.h and libcuda were not found. "
+        "COOLRuntime requires the CUDA Driver API: cuda.h and libcuda were not found. "
         "Install an NVIDIA driver (no CUDA Toolkit needed) or set CUDA_HOME.")
 endif()
 
-message(STATUS "CoolRuntime: cuda backend (include: ${CUDA_INCLUDE_DIR}, "
+message(STATUS "COOLRuntime: cuda backend (include: ${CUDA_INCLUDE_DIR}, "
                "driver: ${CUDA_DRIVER_LIBRARY})")
 
 # ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ set(COOLRUNTIME_SOURCES
     src/backend/cuda/cuda_backend.cpp)
 
 add_library(coolruntime STATIC ${COOLRUNTIME_SOURCES})
-add_library(CoolRuntime::coolruntime ALIAS coolruntime)
+add_library(COOLRuntime::coolruntime ALIAS coolruntime)
 
 target_include_directories(coolruntime
     PUBLIC
