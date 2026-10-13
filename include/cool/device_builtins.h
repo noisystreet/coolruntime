@@ -1,0 +1,81 @@
+// SPDX-FileCopyrightText: 2026 COOLRuntime contributors
+// SPDX-License-Identifier: MIT
+
+/*
+ * COOLRuntime 设备端内建（device builtins）。
+ *
+ * 对应 CUDA 的 cuda_runtime.h 中「设备侧」部分：执行/存储限定符宏、内建向量类型、
+ * 内建变量（threadIdx 等）与内建函数（__syncthreads 等）。
+ *
+ * 分工（见 hacc 的 tools/il_spike/cuda-attributes.md §5）：
+ *   - 限定符宏（__global__ 等）→ 映射为 __attribute__((cool_*))，由 hacc 前端识别。
+ *   - 内建变量/函数 → 由 hacc 设备端（coolicc）按名字映射到 NVVM intrinsic。
+ *
+ * 本头文件保持 C 兼容：只用 C 类型，禁止 STL / 模板 / 引用。
+ *
+ * 设备/主机区分：内建变量与内建函数**仅在设备编译时**声明（对标 CUDA 的 __CUDACC__）。
+ * hacc 的 coolfe++ 定义 __COOLCC__；主机编译器（g++/clang++）不定义，故主机侧
+ * 不会看到 threadIdx 等符号，避免未定义引用。限定符宏则两端都定义（主机侧也需解析
+ * 内核声明以生成桩）。
+ */
+#ifndef COOL_DEVICE_BUILTINS_H
+#define COOL_DEVICE_BUILTINS_H
+
+#include "cool_types.h"
+
+/* ------------------------------------------------------------------ */
+/* 执行 / 存储限定符宏（两端可见）                                      */
+/* ------------------------------------------------------------------ */
+/*
+ * 映射为 EDG 未知属性（A2 决策 (a)）；名字与语义见 cuda-attributes.md §1/§2。
+ * 主机编译器（g++/clang++）不认识 cool_* 属性，会告警——故仅在 __COOLCC__ 下展开为
+ * 属性，否则展开为空（主机侧限定符无副作用）。
+ */
+#ifdef __COOLCC__
+#define __global__ __attribute__((cool_global))
+#define __device__ __attribute__((cool_device))
+#define __host__ __attribute__((cool_host))
+#define __shared__ __attribute__((cool_shared))
+#define __constant__ __attribute__((cool_constant))
+#else
+#define __global__
+#define __device__
+#define __host__
+#define __shared__
+#define __constant__
+#endif
+
+/* ------------------------------------------------------------------ */
+/* 内建向量类型（两端可见；与 CUDA 的 make_* 对应）                     */
+/* ------------------------------------------------------------------ */
+
+typedef struct uint3 {
+    unsigned int x;
+    unsigned int y;
+    unsigned int z;
+} uint3;
+
+typedef struct int3 {
+    int x;
+    int y;
+    int z;
+} int3;
+
+/* ------------------------------------------------------------------ */
+/* 设备端内建变量与函数（仅设备编译可见）                               */
+/* ------------------------------------------------------------------ */
+#ifdef __COOLCC__
+
+/* 内建变量：由 coolicc 按名字映射到 NVVM 特殊寄存器（%tid.x 等）。 */
+extern uint3 threadIdx;
+extern uint3 blockIdx;
+extern uint3 blockDim;
+extern uint3 gridDim;
+extern unsigned int warpSize;
+
+/* 内建函数：由 coolicc 按名字映射到 NVVM intrinsic（llvm.nvvm.barrier0 等）。 */
+void __syncthreads(void);
+
+#endif /* __COOLCC__ */
+
+#endif /* COOL_DEVICE_BUILTINS_H */

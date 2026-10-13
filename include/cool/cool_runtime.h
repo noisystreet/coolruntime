@@ -14,5 +14,6 @@
 #include "cool_runtime_api.h"
 #include "cool_types.h"
 #include "cool_version.h"
+#include "device_builtins.h"
 
 #endif /* COOL_RUNTIME_H */

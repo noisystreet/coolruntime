@@ -10,6 +10,7 @@
 #include "cool/cool_runtime_api.h"
 #include "cool/cool_types.h"
 #include "cool/cool_version.h"
+#include "cool/device_builtins.h"
 
 int cool_abi_check_translation_unit(void) {
     coolError_t err = coolSuccess;

@@ -27,6 +27,11 @@ and this project uses semantic versioning when releases are created.
 - `cuda` 后端模块/函数/启动/占用率实现，并扩展后端侧句柄注册表（跟踪模块与函数地址，卸载模块时级联失效其函数）。
 - 内核单元测试 `test_kernel`（内嵌最小 PTX，经驱动 JIT 加载，无需 nvcc/ptxas）。
 - 单元测试（version / error / device）与 C ABI 编译校验、`samples/hello` 示例。
+- 设备端内建头 `device_builtins.h`：执行/存储限定符宏（`__global__` / `__device__` /
+  `__host__` / `__shared__` / `__constant__`，映射为 `__attribute__((cool_*))`）、内建向量类型
+  （`uint3` / `int3`）、内建变量（`threadIdx` / `blockIdx` / `blockDim` / `gridDim` / `warpSize`）
+  与内建函数（`__syncthreads`）。内建变量/函数仅在设备编译（`__COOLCC__`）下声明；
+  由 `cool_runtime.h` 聚合，并纳入 C ABI 校验。
 
 ### Changed
 
