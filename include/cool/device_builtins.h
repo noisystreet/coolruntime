@@ -61,57 +61,57 @@ typedef struct int3 {
     int z;
 } int3;
 
-/* 2 分量向量。 */
-typedef struct float2 {
+/* 2 分量向量（对齐 8，与 CUDA 一致）。 */
+typedef struct __attribute__((aligned(8))) float2 {
     float x;
     float y;
 } float2;
 
-typedef struct int2 {
+typedef struct __attribute__((aligned(8))) int2 {
     int x;
     int y;
 } int2;
 
-typedef struct uint2 {
+typedef struct __attribute__((aligned(8))) uint2 {
     unsigned int x;
     unsigned int y;
 } uint2;
 
-typedef struct double2 {
+typedef struct __attribute__((aligned(16))) double2 {
     double x;
     double y;
 } double2;
 
-/* 3 分量向量。注意：与 CUDA 一致，float3 无 padding（sizeof == 12）。 */
+/* 3 分量向量。注意：与 CUDA 一致，float3 无 padding（sizeof == 12，对齐 4）。 */
 typedef struct float3 {
     float x;
     float y;
     float z;
 } float3;
 
-/* 4 分量向量。 */
-typedef struct float4 {
+/* 4 分量向量（对齐 16，与 CUDA 一致）。 */
+typedef struct __attribute__((aligned(16))) float4 {
     float x;
     float y;
     float z;
     float w;
 } float4;
 
-typedef struct int4 {
+typedef struct __attribute__((aligned(16))) int4 {
     int x;
     int y;
     int z;
     int w;
 } int4;
 
-typedef struct uint4 {
+typedef struct __attribute__((aligned(16))) uint4 {
     unsigned int x;
     unsigned int y;
     unsigned int z;
     unsigned int w;
 } uint4;
 
-typedef struct double4 {
+typedef struct __attribute__((aligned(16))) double4 {
     double x;
     double y;
     double z;
