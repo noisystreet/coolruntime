@@ -61,6 +61,63 @@ typedef struct int3 {
     int z;
 } int3;
 
+/* 2 分量向量。 */
+typedef struct float2 {
+    float x;
+    float y;
+} float2;
+
+typedef struct int2 {
+    int x;
+    int y;
+} int2;
+
+typedef struct uint2 {
+    unsigned int x;
+    unsigned int y;
+} uint2;
+
+typedef struct double2 {
+    double x;
+    double y;
+} double2;
+
+/* 3 分量向量。注意：与 CUDA 一致，float3 无 padding（sizeof == 12）。 */
+typedef struct float3 {
+    float x;
+    float y;
+    float z;
+} float3;
+
+/* 4 分量向量。 */
+typedef struct float4 {
+    float x;
+    float y;
+    float z;
+    float w;
+} float4;
+
+typedef struct int4 {
+    int x;
+    int y;
+    int z;
+    int w;
+} int4;
+
+typedef struct uint4 {
+    unsigned int x;
+    unsigned int y;
+    unsigned int z;
+    unsigned int w;
+} uint4;
+
+typedef struct double4 {
+    double x;
+    double y;
+    double z;
+    double w;
+} double4;
+
 /* ------------------------------------------------------------------ */
 /* 设备端内建变量与函数（仅设备编译可见）                               */
 /* ------------------------------------------------------------------ */
