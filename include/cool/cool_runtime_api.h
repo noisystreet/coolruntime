@@ -95,6 +95,22 @@ coolError_t coolMallocHost(void** ptr, size_t size);
 /* 释放页锁定主机内存；ptr 为 NULL 时为空操作。 */
 coolError_t coolFreeHost(void* ptr);
 
+/*
+ * 把主机数据拷入设备符号（对应 cudaMemcpyToSymbol）。
+ *
+ * symbol 为 coolSymbolDesc 的地址（见 cool_types.h）；src 为源数据，
+ * count 为字节数，offset 为符号内偏移，kind 为拷贝方向（默认 H2D）。
+ * 越界（offset + count > 符号大小）返回 coolErrorInvalidValue。
+ */
+coolError_t coolMemcpyToSymbol(const void* symbol, const void* src, size_t count, size_t offset,
+                               coolMemcpyKind kind);
+
+/* 取设备符号地址（对应 cudaGetSymbolAddress）；结果写入 *devPtr。 */
+coolError_t coolGetSymbolAddress(void** devPtr, const void* symbol);
+
+/* 取设备符号字节数（对应 cudaGetSymbolSize）；结果写入 *size。 */
+coolError_t coolGetSymbolSize(size_t* size, const void* symbol);
+
 /* ------------------------------------------------------------------ */
 /* 流管理（对应 cudaStreamCreate / cudaStreamSynchronize 等）          */
 /* ------------------------------------------------------------------ */
@@ -202,6 +218,9 @@ coolError_t coolOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize,
 #define cudaMemGetInfo coolMemGetInfo
 #define cudaMallocHost coolMallocHost
 #define cudaFreeHost coolFreeHost
+#define cudaMemcpyToSymbol coolMemcpyToSymbol
+#define cudaGetSymbolAddress coolGetSymbolAddress
+#define cudaGetSymbolSize coolGetSymbolSize
 #define cudaStreamCreate coolStreamCreate
 #define cudaStreamCreateWithFlags coolStreamCreateWithFlags
 #define cudaStreamCreateWithPriority coolStreamCreateWithPriority

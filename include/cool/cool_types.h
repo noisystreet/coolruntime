@@ -83,6 +83,25 @@ typedef coolKernel* coolKernel_t;
 /* 模块句柄（P3）：cuda 后端内部即 CUmodule。 */
 typedef struct coolModule_st* coolModule_t;
 
+/*
+ * 设备符号描述符（M3.2）：用于 coolMemcpyToSymbol / coolGetSymbolAddress /
+ * coolGetSymbolSize 定位设备侧符号（如 __constant__ 变量）。
+ *
+ * 与 CUDA 的差异：cudart 的 cudaMemcpyToSymbol 接收「主机侧符号地址」，
+ * 由 nvcc 编译期魔法解析；COOLRuntime 无此机制，故由 hacc 生成主机桩时
+ * 构造本描述符，其地址即作为 symbol 参数传入（语义等价于 CUDA 的符号地址）。
+ *
+ * 字段：
+ *   module      —— 符号所属模块句柄；由主机桩在模块加载后填充（运行时）。
+ *   symbol_name —— 设备侧符号名（如 "c_pi"），用于 cuModuleGetGlobal 解析。
+ *   size        —— 符号字节数（供 coolGetSymbolSize 与越界校验）。
+ */
+typedef struct coolSymbolDesc {
+    coolModule_t module;
+    const char* symbol_name;
+    size_t size;
+} coolSymbolDesc;
+
 #ifdef __cplusplus
 }
 #endif

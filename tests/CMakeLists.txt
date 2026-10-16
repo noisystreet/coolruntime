@@ -12,6 +12,7 @@ cool_add_unit_test(test_mem)
 cool_add_unit_test(test_stream)
 cool_add_unit_test(test_event)
 cool_add_unit_test(test_kernel)
+cool_add_unit_test(test_symbol)
 
 # 全部测试在唯一的 cuda 后端下运行，需要可用的 NVIDIA 驱动。
 add_test(NAME test_version COMMAND test_version)
@@ -21,3 +22,4 @@ add_test(NAME test_mem COMMAND test_mem)
 add_test(NAME test_stream COMMAND test_stream)
 add_test(NAME test_event COMMAND test_event)
 add_test(NAME test_kernel COMMAND test_kernel)
+add_test(NAME test_symbol COMMAND test_symbol)

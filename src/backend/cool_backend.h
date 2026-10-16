@@ -41,6 +41,11 @@ typedef struct coolBackend {
     coolError_t (*memcpy)(void* dst, const void* src, size_t count, coolMemcpyKind kind);
     coolError_t (*memset)(void* p, int value, size_t count);
     coolError_t (*memGetInfo)(size_t* freeBytes, size_t* totalBytes);
+    /* M3.2：设备符号（__constant__）拷贝与地址/大小查询。 */
+    coolError_t (*memcpyToSymbol)(const void* symbol, const void* src, size_t count, size_t offset,
+                                  coolMemcpyKind kind);
+    coolError_t (*getSymbolAddress)(void** devPtr, const void* symbol);
+    coolError_t (*getSymbolSize)(size_t* size, const void* symbol);
 
     /* 流 */
     coolError_t (*streamCreate)(coolStream_t* s, unsigned flags, int priority);

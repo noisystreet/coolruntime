@@ -101,3 +101,55 @@ extern "C" coolError_t coolFreeHost(void* ptr) {
     COOL_API_GUARD(backend->freeHost(ptr));
     return coolSuccess;
 }
+
+extern "C" coolError_t coolMemcpyToSymbol(const void* symbol, const void* src, size_t count,
+                                          size_t offset, coolMemcpyKind kind) {
+    if (symbol == nullptr || src == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_GUARD(cool::ensureInitialized());
+
+    const coolBackend* backend = cool::activeBackend();
+    if (backend == nullptr) {
+        COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->memcpyToSymbol == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
+    }
+    COOL_API_GUARD(backend->memcpyToSymbol(symbol, src, count, offset, kind));
+    return coolSuccess;
+}
+
+extern "C" coolError_t coolGetSymbolAddress(void** devPtr, const void* symbol) {
+    if (devPtr == nullptr || symbol == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_GUARD(cool::ensureInitialized());
+
+    const coolBackend* backend = cool::activeBackend();
+    if (backend == nullptr) {
+        COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->getSymbolAddress == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
+    }
+    COOL_API_GUARD(backend->getSymbolAddress(devPtr, symbol));
+    return coolSuccess;
+}
+
+extern "C" coolError_t coolGetSymbolSize(size_t* size, const void* symbol) {
+    if (size == nullptr || symbol == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_GUARD(cool::ensureInitialized());
+
+    const coolBackend* backend = cool::activeBackend();
+    if (backend == nullptr) {
+        COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->getSymbolSize == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
+    }
+    COOL_API_GUARD(backend->getSymbolSize(size, symbol));
+    return coolSuccess;
+}

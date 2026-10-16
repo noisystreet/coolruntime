@@ -445,6 +445,98 @@ coolError_t cudaMemGetInfo(size_t* freeBytes, size_t* totalBytes) {
     return cuResultToCool(cuMemGetInfo(freeBytes, totalBytes));
 }
 
+/*
+ * M3.2：把 coolSymbolDesc 解析为设备符号地址与大小。
+ * symbol 为 coolSymbolDesc 地址；校验描述符、模块句柄与符号名。
+ */
+coolError_t resolveSymbol(const void* symbol, CUdeviceptr* devPtr, size_t* size) {
+    if (symbol == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const auto* desc = static_cast<const coolSymbolDesc*>(symbol);
+    if (desc->module == nullptr || desc->symbol_name == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handleRegistry().hasModule(handleAddr(desc->module))) {
+        return coolErrorInvalidValue;
+    }
+
+    CUdeviceptr addr = 0;
+    size_t symSize = 0;
+    const CUresult res = cuModuleGetGlobal(
+        &addr, &symSize, reinterpret_cast<CUmodule>(desc->module), desc->symbol_name);
+    if (res != CUDA_SUCCESS) {
+        return cuResultToCool(res);
+    }
+    if (devPtr != nullptr) {
+        *devPtr = addr;
+    }
+    if (size != nullptr) {
+        *size = symSize;
+    }
+    return coolSuccess;
+}
+
+coolError_t cudaMemcpyToSymbol(const void* symbol, const void* src, size_t count, size_t offset,
+                               coolMemcpyKind kind) {
+    if (src == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    CUdeviceptr addr = 0;
+    size_t symSize = 0;
+    const coolError_t err = resolveSymbol(symbol, &addr, &symSize);
+    if (err != coolSuccess) {
+        return err;
+    }
+    /* 越界校验：offset + count 不得超过符号大小。 */
+    if (offset > symSize || count > symSize - offset) {
+        return coolErrorInvalidValue;
+    }
+
+    switch (kind) {
+        case coolMemcpyHostToDevice:
+            return cuResultToCool(cuMemcpyHtoD(addr + offset, src, count));
+        case coolMemcpyDeviceToDevice:
+            return cuResultToCool(
+                cuMemcpyDtoD(addr + offset, reinterpret_cast<CUdeviceptr>(src), count));
+        default:
+            /* 符号位于设备侧，仅支持 H2D / D2D。 */
+            return coolErrorInvalidValue;
+    }
+}
+
+coolError_t cudaGetSymbolAddress(void** devPtr, const void* symbol) {
+    if (devPtr == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *devPtr = nullptr;
+    CUdeviceptr addr = 0;
+    const coolError_t err = resolveSymbol(symbol, &addr, nullptr);
+    if (err != coolSuccess) {
+        return err;
+    }
+    *devPtr = reinterpret_cast<void*>(addr);
+    return coolSuccess;
+}
+
+coolError_t cudaGetSymbolSize(size_t* size, const void* symbol) {
+    if (size == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    *size = 0;
+    size_t symSize = 0;
+    const coolError_t err = resolveSymbol(symbol, nullptr, &symSize);
+    if (err != coolSuccess) {
+        return err;
+    }
+    *size = symSize;
+    return coolSuccess;
+}
+
 coolError_t cudaMallocHost(void** ptr, size_t size, unsigned flags) {
     if (ptr == nullptr) {
         return coolErrorInvalidValue;
@@ -838,6 +930,9 @@ const coolBackend* cudaBackend() {
         cudaMemcpy,                                    /* memcpy */
         cudaMemset,                                    /* memset */
         cudaMemGetInfo,                                /* memGetInfo */
+        cudaMemcpyToSymbol,                            /* memcpyToSymbol */
+        cudaGetSymbolAddress,                          /* getSymbolAddress */
+        cudaGetSymbolSize,                             /* getSymbolSize */
         cudaStreamCreate,                              /* streamCreate */
         cudaStreamDestroy,                             /* streamDestroy */
         cudaStreamSynchronize,                         /* streamSynchronize */
