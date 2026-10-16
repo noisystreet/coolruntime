@@ -7,11 +7,17 @@ CMAKE ?= cmake
 CTEST ?= ctest
 CLANG_FORMAT ?= clang-format
 CLANG_TIDY ?= clang-tidy
+LIZARD ?= lizard
+
+# lizard 阈值（与 hacc 对齐；当前无超标函数，故无需白名单）。
+CCN_THRESHOLD ?= 10
+FUNC_LENGTH_THRESHOLD ?= 200
+LIZARD_PATHS := src include tests
 
 SRC_DIRS := src tests samples include
 FMT_FILES := $(shell find $(SRC_DIRS) -type f \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) 2>/dev/null)
 
-.PHONY: all configure build test fmt fmt-check lint check clean
+.PHONY: all configure build test fmt fmt-check lint ccn check clean
 
 all: build
 
@@ -26,22 +32,38 @@ build: configure
 test: build
 	$(CTEST) --test-dir $(BUILD_DIR) --output-on-failure
 
+# 工具缺失时跳过（打印提示），存在时违规必须让目标失败（退出码非 0）。
 fmt:
-	@command -v $(CLANG_FORMAT) >/dev/null 2>&1 && \
-		$(CLANG_FORMAT) -i $(FMT_FILES) || \
-		echo "clang-format not found; skipping"
+	@if command -v $(CLANG_FORMAT) >/dev/null 2>&1; then \
+		$(CLANG_FORMAT) -i $(FMT_FILES); \
+	else \
+		echo "clang-format not found; skipping"; \
+	fi
 
 fmt-check:
-	@command -v $(CLANG_FORMAT) >/dev/null 2>&1 && \
-		$(CLANG_FORMAT) --dry-run --Werror $(FMT_FILES) || \
-		echo "clang-format not found; skipping"
+	@if command -v $(CLANG_FORMAT) >/dev/null 2>&1; then \
+		$(CLANG_FORMAT) --dry-run --Werror $(FMT_FILES); \
+	else \
+		echo "clang-format not found; skipping"; \
+	fi
 
 lint: configure
-	@command -v $(CLANG_TIDY) >/dev/null 2>&1 && \
-		$(CLANG_TIDY) -p $(BUILD_DIR) $(FMT_FILES) || \
-		echo "clang-tidy not found; skipping"
+	@if command -v $(CLANG_TIDY) >/dev/null 2>&1; then \
+		$(CLANG_TIDY) -p $(BUILD_DIR) $(FMT_FILES); \
+	else \
+		echo "clang-tidy not found; skipping"; \
+	fi
 
-check: fmt-check build test
+# 圈复杂度（CCN）与函数长度门禁（与 hacc 对齐）。
+ccn:
+	@if command -v $(LIZARD) >/dev/null 2>&1; then \
+		$(LIZARD) $(LIZARD_PATHS) -l cpp \
+			-C $(CCN_THRESHOLD) -L $(FUNC_LENGTH_THRESHOLD); \
+	else \
+		echo "lizard not found; skipping"; \
+	fi
+
+check: fmt-check ccn build test
 
 clean:
 	rm -rf $(BUILD_DIR)
