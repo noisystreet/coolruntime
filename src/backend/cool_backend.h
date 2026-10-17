@@ -44,6 +44,9 @@ typedef struct coolBackend {
     /* M3.2：设备符号（__constant__）拷贝与地址/大小查询。 */
     coolError_t (*memcpyToSymbol)(const void* symbol, const void* src, size_t count, size_t offset,
                                   coolMemcpyKind kind);
+    /* 设备符号 → 主机（对应 cudaMemcpyFromSymbol）；与 memcpyToSymbol 对称。 */
+    coolError_t (*memcpyFromSymbol)(void* dst, const void* symbol, size_t count, size_t offset,
+                                    coolMemcpyKind kind);
     coolError_t (*getSymbolAddress)(void** devPtr, const void* symbol);
     coolError_t (*getSymbolSize)(size_t* size, const void* symbol);
 

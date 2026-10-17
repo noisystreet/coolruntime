@@ -105,6 +105,19 @@ coolError_t coolFreeHost(void* ptr);
 coolError_t coolMemcpyToSymbol(const void* symbol, const void* src, size_t count, size_t offset,
                                coolMemcpyKind kind);
 
+/*
+ * 把设备符号拷出到主机或设备内存（对应 cudaMemcpyFromSymbol）。
+ *
+ * dst 为目标指针；symbol 为 coolSymbolDesc 的地址；count 为字节数，offset 为符号内偏移。
+ * kind 受符号在设备侧这一事实约束：只接受 coolMemcpyDeviceToHost（默认）与
+ * coolMemcpyDeviceToDevice，其余方向（H2H / H2D / Default）返回 coolErrorInvalidValue。
+ * 越界（offset + count > 符号大小）返回 coolErrorInvalidValue。
+ *
+ * 与 ToSymbol 对称：两者合起来覆盖「主机 ↔ 设备符号」的双向搬运。
+ */
+coolError_t coolMemcpyFromSymbol(void* dst, const void* symbol, size_t count, size_t offset,
+                                 coolMemcpyKind kind);
+
 /* 取设备符号地址（对应 cudaGetSymbolAddress）；结果写入 *devPtr。 */
 coolError_t coolGetSymbolAddress(void** devPtr, const void* symbol);
 
@@ -219,6 +232,7 @@ coolError_t coolOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize,
 #define cudaMallocHost coolMallocHost
 #define cudaFreeHost coolFreeHost
 #define cudaMemcpyToSymbol coolMemcpyToSymbol
+#define cudaMemcpyFromSymbol coolMemcpyFromSymbol
 #define cudaGetSymbolAddress coolGetSymbolAddress
 #define cudaGetSymbolSize coolGetSymbolSize
 #define cudaStreamCreate coolStreamCreate

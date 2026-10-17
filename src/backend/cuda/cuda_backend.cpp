@@ -509,6 +509,42 @@ coolError_t cudaMemcpyToSymbol(const void* symbol, const void* src, size_t count
     }
 }
 
+/*
+ * 把设备符号拷出到主机/设备指针（对应 cudaMemcpyFromSymbol，与 cudaMemcpyToSymbol 对称）。
+ *
+ * symbol 为 coolSymbolDesc 地址；dst 为目标指针；kind 决定目标侧内存类别：
+ * D2H 走 cuMemcpyDtoH，D2D 走 cuMemcpyDtoD。符号在设备侧，故 H2H/H2D/Default 一律
+ * 视为非法（与 cudart 对 FromSymbol 的约束一致）。
+ * 越界（offset + count > 符号大小）返回 coolErrorInvalidValue。
+ */
+coolError_t cudaMemcpyFromSymbol(void* dst, const void* symbol, size_t count, size_t offset,
+                                 coolMemcpyKind kind) {
+    if (dst == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    CUdeviceptr addr = 0;
+    size_t symSize = 0;
+    const coolError_t err = resolveSymbol(symbol, &addr, &symSize);
+    if (err != coolSuccess) {
+        return err;
+    }
+    /* 越界校验：offset + count 不得超过符号大小。 */
+    if (offset > symSize || count > symSize - offset) {
+        return coolErrorInvalidValue;
+    }
+
+    switch (kind) {
+        case coolMemcpyDeviceToHost:
+            return cuResultToCool(cuMemcpyDtoH(dst, addr + offset, count));
+        case coolMemcpyDeviceToDevice:
+            return cuResultToCool(
+                cuMemcpyDtoD(reinterpret_cast<CUdeviceptr>(dst), addr + offset, count));
+        default:
+            /* 源是设备符号，仅支持 D2H / D2D。 */
+            return coolErrorInvalidValue;
+    }
+}
+
 coolError_t cudaGetSymbolAddress(void** devPtr, const void* symbol) {
     if (devPtr == nullptr) {
         return coolErrorInvalidValue;
@@ -931,6 +967,7 @@ const coolBackend* cudaBackend() {
         cudaMemset,                                    /* memset */
         cudaMemGetInfo,                                /* memGetInfo */
         cudaMemcpyToSymbol,                            /* memcpyToSymbol */
+        cudaMemcpyFromSymbol,                          /* memcpyFromSymbol */
         cudaGetSymbolAddress,                          /* getSymbolAddress */
         cudaGetSymbolSize,                             /* getSymbolSize */
         cudaStreamCreate,                              /* streamCreate */

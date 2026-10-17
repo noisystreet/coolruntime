@@ -120,6 +120,24 @@ extern "C" coolError_t coolMemcpyToSymbol(const void* symbol, const void* src, s
     return coolSuccess;
 }
 
+extern "C" coolError_t coolMemcpyFromSymbol(void* dst, const void* symbol, size_t count,
+                                            size_t offset, coolMemcpyKind kind) {
+    if (dst == nullptr || symbol == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_GUARD(cool::ensureInitialized());
+
+    const coolBackend* backend = cool::activeBackend();
+    if (backend == nullptr) {
+        COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->memcpyFromSymbol == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
+    }
+    COOL_API_GUARD(backend->memcpyFromSymbol(dst, symbol, count, offset, kind));
+    return coolSuccess;
+}
+
 extern "C" coolError_t coolGetSymbolAddress(void** devPtr, const void* symbol) {
     if (devPtr == nullptr || symbol == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);

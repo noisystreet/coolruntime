@@ -36,6 +36,12 @@ and this project uses semantic versioning when releases are created.
   `atomicExch` / `atomicMin` / `atomicMax` / `atomicCAS`，覆盖 `int` / `unsigned int` / `float`
   常用重载（`atomicAdd` 与 `atomicExch` 含 unsigned 重载；`atomicMin`/`atomicMax` 靠有符号与
   无符号重载区分语义）。由 `coolicc` 按名字映射到 LLVM `atomicrmw` / `cmpxchg`；返回运算前旧值。
+- 设备符号拷出接口 `coolMemcpyFromSymbol`（API 对齐 cudart 的 `cudaMemcpyFromSymbol`）：
+  与既有的 `coolMemcpyToSymbol` 对称，覆盖「设备符号 → 主机 / 设备内存」方向。
+  `kind` 只接受 `coolMemcpyDeviceToHost`（默认语义）与 `coolMemcpyDeviceToDevice`，
+  其余方向与越界均返回 `coolErrorInvalidValue`；同时提供 `cudaMemcpyFromSymbol` 兼容别名。
+  后端函数表新增 `memcpyFromSymbol`，`cuda` 后端以 `cuMemcpyDtoH` / `cuMemcpyDtoD` 实现。
+  补齐 `test_symbol` 覆盖（往返一致、偏移、越界、非法方向、未初始化描述符、别名可用）。
 
 ### Changed
 

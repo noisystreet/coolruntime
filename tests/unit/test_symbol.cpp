@@ -13,6 +13,12 @@
 #include <cstdio>
 #include <cstring>
 
+/*
+ * 开启 cudart 兼容别名，使 cudaMemcpyFromSymbol 等宏在本 TU 可见。
+ * 头文件里这组 #define 由 COOL_ENABLE_CUDA_ALIAS 门控，之前无任何测试开启过，
+ * 等于别名未被验证；本文件至少覆盖符号类别名。
+ */
+#define COOL_ENABLE_CUDA_ALIAS 1
 #include "cool/cool_runtime_api.h"
 
 #include "support/check.hpp"
@@ -112,6 +118,52 @@ int main() {
     /* 不支持的拷贝方向（符号在设备侧，仅 H2D / D2D）。 */
     COOL_CHECK_EQ(coolMemcpyToSymbol(&desc, &pi, sizeof(float), 0, coolMemcpyDeviceToHost),
                   coolErrorInvalidValue);
+
+    /*
+     * FromSymbol（对应 cudaMemcpyFromSymbol）：与 ToSymbol 对称的反向搬运。
+     * 上面已用 coolMemcpy(GetSymbolAddress) 间接验证过读回，这里覆盖该 API 自身。
+     */
+    COOL_CHECK_EQ(coolMemcpyFromSymbol(nullptr, &desc, sizeof(float), 0, coolMemcpyDeviceToHost),
+                  coolErrorInvalidValue);
+    COOL_CHECK_EQ(
+        coolMemcpyFromSymbol(&readback, nullptr, sizeof(float), 0, coolMemcpyDeviceToHost),
+        coolErrorInvalidValue);
+
+    /* 往返一致：符号里现在是 pi，直接经 FromSymbol 读回。 */
+    float fromSymbol = 0.0f;
+    COOL_CHECK_EQ(
+        coolMemcpyFromSymbol(&fromSymbol, &desc, sizeof(float), 0, coolMemcpyDeviceToHost),
+        coolSuccess);
+    COOL_CHECK(fromSymbol == pi);
+
+    /* 带偏移读回：offset=2 读 2 字节仍应成功且不越界。 */
+    COOL_CHECK_EQ(coolMemcpyFromSymbol(&fromSymbol, &desc, 2, 2, coolMemcpyDeviceToHost),
+                  coolSuccess);
+
+    /* 越界读回应被拒（与 ToSymbol 同口径）。 */
+    COOL_CHECK_EQ(
+        coolMemcpyFromSymbol(&fromSymbol, &desc, sizeof(float), 2, coolMemcpyDeviceToHost),
+        coolErrorInvalidValue);
+    COOL_CHECK_EQ(coolMemcpyFromSymbol(&fromSymbol, &desc, 8, 0, coolMemcpyDeviceToHost),
+                  coolErrorInvalidValue);
+
+    /* 不支持的拷贝方向（源是设备符号，仅 D2H / D2D）。 */
+    COOL_CHECK_EQ(
+        coolMemcpyFromSymbol(&fromSymbol, &desc, sizeof(float), 0, coolMemcpyHostToDevice),
+        coolErrorInvalidValue);
+    COOL_CHECK_EQ(coolMemcpyFromSymbol(&fromSymbol, &desc, sizeof(float), 0, coolMemcpyHostToHost),
+                  coolErrorInvalidValue);
+
+    /* 未初始化描述符应被拒。 */
+    COOL_CHECK_EQ(
+        coolMemcpyFromSymbol(&fromSymbol, &badDesc, sizeof(float), 0, coolMemcpyDeviceToHost),
+        coolErrorInvalidValue);
+
+    /* cudart 兼容别名可用（编译期即为同一符号）。 */
+    COOL_CHECK_EQ(
+        cudaMemcpyFromSymbol(&fromSymbol, &desc, sizeof(float), 0, coolMemcpyDeviceToHost),
+        coolSuccess);
+    COOL_CHECK(fromSymbol == pi);
 
     /* 未知名符号应失败。 */
     coolSymbolDesc missing{};
