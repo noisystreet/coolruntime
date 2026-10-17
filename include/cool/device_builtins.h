@@ -37,6 +37,9 @@
 #define __host__ __attribute__((cool_host))
 #define __shared__ __attribute__((cool_shared))
 #define __constant__ __attribute__((cool_constant))
+/* __restrict__ 在设备编译时映射为 cool_restrict 属性（S1/M4.2，→ LLVM noalias）。
+ * 主机侧不覆盖：__restrict__ 是 GCC/Clang 标准关键字，保持原义。 */
+#define __restrict__ __attribute__((cool_restrict))
 #else
 #define __global__
 #define __device__
