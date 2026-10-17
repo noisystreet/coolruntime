@@ -32,6 +32,10 @@ and this project uses semantic versioning when releases are created.
   （`uint3` / `int3`）、内建变量（`threadIdx` / `blockIdx` / `blockDim` / `gridDim` / `warpSize`）
   与内建函数（`__syncthreads`）。内建变量/函数仅在设备编译（`__COOLCC__`）下声明；
   由 `cool_runtime.h` 聚合，并纳入 C ABI 校验。
+- `device_builtins.h` 新增原子内建声明（仅 `__COOLCC__` 下）：`atomicAdd` / `atomicSub` /
+  `atomicExch` / `atomicMin` / `atomicMax` / `atomicCAS`，覆盖 `int` / `unsigned int` / `float`
+  常用重载（`atomicAdd` 与 `atomicExch` 含 unsigned 重载；`atomicMin`/`atomicMax` 靠有符号与
+  无符号重载区分语义）。由 `coolicc` 按名字映射到 LLVM `atomicrmw` / `cmpxchg`；返回运算前旧值。
 
 ### Changed
 

@@ -143,6 +143,30 @@ void __threadfence(void);
 void __threadfence_block(void);
 void __threadfence_system(void);
 
+/* 原子内建（S1/M4.4）：由 coolicc 映射到 LLVM 原生 `atomicrmw` / `cmpxchg`
+ * （不用 llvm.nvvm.atomic.* —— 那套只有 cta/sys 作用域，表达不出 CUDA 默认的
+ * device scope；实测见 hacc 的 m4-subset-s1-plan.md §3.5）。
+ * 签名按 CUDA，返回**运算前的旧值**。
+ * 一期覆盖 int / unsigned int / float 的常用运算；unsigned long long 等按需扩展。 */
+int atomicAdd(int* address, int val);
+unsigned int atomicAdd(unsigned int* address, unsigned int val);
+float atomicAdd(float* address, float val);
+
+int atomicSub(int* address, int val);
+
+int atomicExch(int* address, int val);
+unsigned int atomicExch(unsigned int* address, unsigned int val);
+
+/* 有符号/无符号的 min/max 语义不同，必须靠重载区分。 */
+int atomicMin(int* address, int val);
+int atomicMax(int* address, int val);
+unsigned int atomicMin(unsigned int* address, unsigned int val);
+unsigned int atomicMax(unsigned int* address, unsigned int val);
+
+/* atomicCAS：若 *address == compare 则写入 val，返回**替换前的旧值**。 */
+int atomicCAS(int* address, int compare, int val);
+unsigned int atomicCAS(unsigned int* address, unsigned int compare, unsigned int val);
+
 #endif /* __COOLCC__ */
 
 #endif /* COOL_DEVICE_BUILTINS_H */
