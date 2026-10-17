@@ -136,6 +136,13 @@ extern unsigned int warpSize;
 /* 内建函数：由 coolicc 按名字映射到 NVVM intrinsic（llvm.nvvm.barrier0 等）。 */
 void __syncthreads(void);
 
+/* 内存栅栏（S1/M4.3）：映射到 llvm.nvvm.membar.{gl,cta,sys}。
+ * 语义与 CUDA 一致：__threadfence 影响设备全局可见顺序，__threadfence_block
+ * 限于线程块内，__threadfence_system 覆盖主机与对等设备。三者均无参。 */
+void __threadfence(void);
+void __threadfence_block(void);
+void __threadfence_system(void);
+
 #endif /* __COOLCC__ */
 
 #endif /* COOL_DEVICE_BUILTINS_H */
