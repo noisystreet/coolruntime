@@ -9,6 +9,7 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- 共享库产物 `libcoolrt.so`（与静态库同源；经 OBJECT 库复用，不重复编译）。
 - 初始项目骨架（P0）：CMake 构建、CI、pre-commit。
 - 公开头文件 `cool_version.h` / `cool_types.h` / `cool_runtime_api.h`（C ABI）。
 - 统一入口头 `cool_runtime.h`（聚合 `cool_types.h` / `cool_version.h` / `cool_runtime_api.h`）。
@@ -44,6 +45,12 @@ and this project uses semantic versioning when releases are created.
   补齐 `test_symbol` 覆盖（往返一致、偏移、越界、非法方向、未初始化描述符、别名可用）。
 
 ### Changed
+
+- **库产物重命名**，对齐 CUDA（`libcudart_static.a` / `libcudart.so`）：
+  `libcoolruntime.a` → **`libcoolrt_static.a`**（静态带 `_static` 后缀），并新增 **`libcoolrt.so`**。
+  CMake target 名仍为 `coolruntime`（共享库为 `coolruntime_shared`，别名
+  `COOLRuntime::coolruntime` / `COOLRuntime::coolruntime_shared`），测试与 samples 无需改动。
+  下游 hacc 的默认链接路径已同步为 `libcoolrt_static.a`。
 
 ### Fixed
 

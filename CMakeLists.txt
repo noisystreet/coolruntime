@@ -49,7 +49,11 @@ message(STATUS "COOLRuntime: cuda backend (include: ${CUDA_INCLUDE_DIR}, "
                "driver: ${CUDA_DRIVER_LIBRARY})")
 
 # ---------------------------------------------------------------------------
-# Library target: libcoolruntime.a
+# Library targets: libcoolrt_static.a + libcoolrt.so
+#
+# 产物命名对齐 CUDA（libcudart_static.a / libcudart.so）：静态库带 `_static` 后缀，
+# 共享库用裸名。target 名保留 coolruntime 作为内部标识，测试与 samples 无需改动。
+# 静态库与共享库共用同一份对象（OBJECT 库），不重复编译。
 # ---------------------------------------------------------------------------
 set(COOLRUNTIME_SOURCES
     src/api/error_api.cpp
@@ -63,18 +67,31 @@ set(COOLRUNTIME_SOURCES
     src/core/lifecycle.cpp
     src/backend/cuda/cuda_backend.cpp)
 
-add_library(coolruntime STATIC ${COOLRUNTIME_SOURCES})
-add_library(COOLRuntime::coolruntime ALIAS coolruntime)
-
-target_include_directories(coolruntime
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+add_library(coolruntime_objects OBJECT ${COOLRUNTIME_SOURCES})
+# 共享库需要 PIC；静态库复用同一份对象，故统一开启（x86-64 上代价可忽略）。
+set_target_properties(coolruntime_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(coolruntime_objects
     PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CUDA_INCLUDE_DIR})
+target_link_libraries(coolruntime_objects PRIVATE cool_warnings)
 
-target_link_libraries(coolruntime PRIVATE cool_warnings)
-target_link_libraries(coolruntime PRIVATE ${CUDA_DRIVER_LIBRARY})
+add_library(coolruntime STATIC $<TARGET_OBJECTS:coolruntime_objects>)
+add_library(coolruntime_shared SHARED $<TARGET_OBJECTS:coolruntime_objects>)
+set_target_properties(coolruntime PROPERTIES OUTPUT_NAME coolrt_static)
+set_target_properties(coolruntime_shared PROPERTIES OUTPUT_NAME coolrt)
+
+add_library(COOLRuntime::coolruntime ALIAS coolruntime)
+add_library(COOLRuntime::coolruntime_shared ALIAS coolruntime_shared)
+
+foreach(_cool_lib coolruntime coolruntime_shared)
+    target_include_directories(${_cool_lib}
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    # 共享库必须显式链接 libcuda（否则符号 undefined）；静态库此行仅记录依赖，不产生链接动作。
+    target_link_libraries(${_cool_lib} PRIVATE ${CUDA_DRIVER_LIBRARY})
+endforeach()
 
 # ---------------------------------------------------------------------------
 # C ABI boundary check: the public headers must compile standalone as C11.
