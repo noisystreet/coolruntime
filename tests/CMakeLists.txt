@@ -15,6 +15,7 @@ cool_add_unit_test(test_kernel)
 cool_add_unit_test(test_symbol)
 cool_add_unit_test(test_dim3)
 cool_add_unit_test(test_api_dispatch)
+cool_add_unit_test(test_lifecycle_concurrency)
 
 # 全部测试在唯一的 cuda 后端下运行，需要可用的 NVIDIA 驱动。
 add_test(NAME test_version COMMAND test_version)
@@ -27,3 +28,4 @@ add_test(NAME test_kernel COMMAND test_kernel)
 add_test(NAME test_symbol COMMAND test_symbol)
 add_test(NAME test_dim3 COMMAND test_dim3)
 add_test(NAME test_api_dispatch COMMAND test_api_dispatch)
+add_test(NAME test_lifecycle_concurrency COMMAND test_lifecycle_concurrency)

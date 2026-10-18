@@ -65,6 +65,7 @@ set(COOLRUNTIME_SOURCES
     src/api/kernel_api.cpp
     src/core/error.cpp
     src/core/lifecycle.cpp
+    src/backend/bootstrap.cpp
     src/backend/cuda/cuda_backend.cpp)
 
 add_library(coolruntime_objects OBJECT ${COOLRUNTIME_SOURCES})
@@ -76,6 +77,9 @@ target_include_directories(coolruntime_objects
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CUDA_INCLUDE_DIR})
 target_link_libraries(coolruntime_objects PRIVATE cool_warnings)
+
+# bootstrap 的一次性初始化用 std::mutex / std::atomic，需要线程库。
+find_package(Threads REQUIRED)
 
 add_library(coolruntime STATIC $<TARGET_OBJECTS:coolruntime_objects>)
 add_library(coolruntime_shared SHARED $<TARGET_OBJECTS:coolruntime_objects>)
@@ -96,6 +100,8 @@ foreach(_cool_lib coolruntime coolruntime_shared)
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
     # 共享库必须显式链接 libcuda（否则符号 undefined）；静态库此行仅记录依赖，不产生链接动作。
     target_link_libraries(${_cool_lib} PRIVATE ${CUDA_DRIVER_LIBRARY})
+    # backend 层使用 std::mutex / std::atomic，对使用方是 PUBLIC 依赖。
+    target_link_libraries(${_cool_lib} PUBLIC Threads::Threads)
 endforeach()
 
 # ---------------------------------------------------------------------------

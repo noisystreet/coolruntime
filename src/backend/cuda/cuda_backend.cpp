@@ -26,7 +26,6 @@ namespace {
 
 CUcontext g_ctx = nullptr;
 CUdevice g_dev = 0;
-bool g_initialized = false;
 
 coolError_t cuResultToCool(CUresult res) {
     switch (res) {
@@ -216,7 +215,8 @@ std::uintptr_t handleAddr(const void* handle) {
 }
 
 coolError_t cudaInit(void) {
-    if (g_initialized) {
+    /* 由 backend/bootstrap 保证只调用一次；此处以 context 句柄作为就绪判断（防御）。 */
+    if (g_ctx != nullptr) {
         return coolSuccess;
     }
 
@@ -252,8 +252,6 @@ coolError_t cudaInit(void) {
         return cuResultToCool(res);
     }
 
-    g_initialized = true;
-
     /*
      * 预构造两个注册表：它们的析构在生命周期末尾由静态析构器执行。
      * lifecycle 在本函数返回后才注册 atexit(finalizeAtExit)，故先在此处构造
@@ -272,7 +270,6 @@ coolError_t cudaFinalize(void) {
         cuCtxDestroy(g_ctx);
         g_ctx = nullptr;
     }
-    g_initialized = false;
     return coolSuccess;
 }
 

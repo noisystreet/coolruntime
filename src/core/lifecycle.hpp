@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 /*
- * R 层生命周期管理（内部头）。
+ * R 层生命周期接口（内部头）。
  *
- * 职责：完成一次性的懒初始化，初始化唯一的 cuda 后端。
- * 后端不可用或初始化失败时不做自动回退。
+ * 职责：转发到 backend/bootstrap —— 真正的初始化状态机与同步原语都在
+ * src/backend/bootstrap.cpp（AGENTS.md 只允许后端层使用宿主并发原语）。
+ * 本层保持无状态，便于审计。
  *
- * 约束：本文件属于 R 层，禁止使用 std::thread/std::mutex/std::atomic 等；
- * 一次性初始化通过函数局部静态量实现。
+ * 历史：一次性初始化原先在本层用函数局部静态量实现，但缺乏同步——多线程
+ * 首次并发调用会各自读到「未初始化」，重复执行 backend->init()（重复
+ * cuCtxCreate 会泄漏 context）。该状态机已下移到后端层。
  */
 #ifndef COOL_CORE_LIFECYCLE_HPP
 #define COOL_CORE_LIFECYCLE_HPP

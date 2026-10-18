@@ -78,6 +78,10 @@ and this project uses semantic versioning when releases are created.
 
 ### Changed
 
+- **生命周期状态机下移到后端层**：新增 `src/backend/bootstrap.{hpp,cpp}`，负责选定后端、
+  线程安全的一次性初始化与进程退出时的 finalize。`core/lifecycle.cpp` 从 84 行降到 30 行，
+  只剩对 bootstrap 的转发，R 层保持无状态（符合 AGENTS.md「宿主并发原语只允许出现在
+  后端层」）。
 - **A 层转发样板收敛为一个宏**：44 个 `extern "C"` 中 35 个都在重复同一段「懒初始化 →
   取后端 → 检查空指针 → 检查能力位」的 6 行代码（约 210 行）。新增
   `COOL_API_ENTER(member)`（`core/lifecycle.hpp`），每个转发函数降到 2 行。
@@ -92,6 +96,23 @@ and this project uses semantic versioning when releases are created.
 
 ### Fixed
 
+- **首次并发调用会重复初始化后端（重复 `cuCtxCreate` 泄漏 context）**：懒初始化原先在
+  `core/lifecycle.cpp` 用函数局部静态量 + 普通 `bool` 实现，读写都没有同步。多个线程首次
+  并发调用任意 `cool*` API 时都会读到「未初始化」，各自执行 `backend->init()`；在 cuda
+  后端下就是两次 `cuCtxCreate` —— 第一个 context 被覆盖且永不销毁，`std::atexit` 也可能
+  被重复注册。CUDA 运行时 API 本身是线程安全的，用户从线程池里调 `coolMalloc` 是正常
+  用法，所以这不是理论风险。
+  现在由 `bootstrap` 用 `std::mutex` 串行化「初始化 / 复位 / atexit 清理」，
+  `std::atomic<bool>` 做无锁快路径（`release`/`acquire` 配对保证状态字段可见），
+  避免每次 API 调用都进临界区。
+  新增 `test_lifecycle_concurrency`：8 线程同时冲进 `coolMalloc`，假后端 `init` 内
+  sleep 50 ms 放大竞态窗口，断言 init 恰好一次。**该测试已实测有效**——临时去掉锁后
+  它会失败（`g_initCalls == 1` 不成立）。
+- **初始化状态从两处收敛为一处**：此前 `core/lifecycle` 的 `LifecycleState` 与 cuda 后端的
+  `g_initialized` 各记一份「是否已初始化」，且互不通知 —— `cudaFinalize()` 只清后端那份，
+  于是 atexit 之后运行时仍声称「初始化成功」却没有后端（调用返回 `coolErrorNotReady`）。
+  现在以 `bootstrap` 的状态为唯一权威，cuda 后端改用 `g_ctx != nullptr` 表示就绪，
+  `g_initialized` 已删除。
 - **4 处错误码不符合 BAL 契约**：`coolFree` / `coolMemcpy` / `coolMemset` / `coolFreeHost`
   在「后端能力位为 `NULL`」时返回 `coolErrorNotReady`，而 `cool_backend.h` 明确约定
   「未实现该能力则返回 `coolErrorNotSupported`」（其余 API 也都这么做的）。
