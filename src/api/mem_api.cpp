@@ -27,8 +27,11 @@ extern "C" coolError_t coolFree(void* ptr) {
     COOL_API_GUARD(cool::ensureInitialized());
 
     const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->free == nullptr) {
+    if (backend == nullptr) {
         COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->free == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
     }
     COOL_API_GUARD(backend->free(ptr));
     return coolSuccess;
@@ -38,8 +41,11 @@ extern "C" coolError_t coolMemcpy(void* dst, const void* src, size_t count, cool
     COOL_API_GUARD(cool::ensureInitialized());
 
     const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->memcpy == nullptr) {
+    if (backend == nullptr) {
         COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->memcpy == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
     }
     COOL_API_GUARD(backend->memcpy(dst, src, count, kind));
     return coolSuccess;
@@ -49,8 +55,11 @@ extern "C" coolError_t coolMemset(void* ptr, int value, size_t count) {
     COOL_API_GUARD(cool::ensureInitialized());
 
     const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->memset == nullptr) {
+    if (backend == nullptr) {
         COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->memset == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
     }
     COOL_API_GUARD(backend->memset(ptr, value, count));
     return coolSuccess;
@@ -95,8 +104,11 @@ extern "C" coolError_t coolFreeHost(void* ptr) {
     COOL_API_GUARD(cool::ensureInitialized());
 
     const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->freeHost == nullptr) {
+    if (backend == nullptr) {
         COOL_API_RETURN(coolErrorNotReady);
+    }
+    if (backend->freeHost == nullptr) {
+        COOL_API_RETURN(coolErrorNotSupported);
     }
     COOL_API_GUARD(backend->freeHost(ptr));
     return coolSuccess;

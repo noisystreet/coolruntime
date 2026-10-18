@@ -15,12 +15,19 @@ struct LifecycleState {
     const coolBackend* backend = nullptr;
     coolError_t result = coolErrorNotReady;
     bool attempted = false;
+    bool atexitRegistered = false;
 };
 
 LifecycleState& state() {
     static LifecycleState s;
     return s;
 }
+
+/*
+ * 测试注入的后端；非 nullptr 时优先于内置 cuda 后端。
+ * 只在测试进程启动时（任何 cool API 调用之前）单线程写入一次，故不做同步。
+ */
+const coolBackend* g_testBackend = nullptr;
 
 void finalizeAtExit() {
     LifecycleState& s = state();
@@ -32,6 +39,14 @@ void finalizeAtExit() {
 
 }  // namespace
 
+void installBackendForTesting(const coolBackend* backend) {
+    g_testBackend = backend;
+    LifecycleState& s = state();
+    s.backend = nullptr;
+    s.result = coolErrorNotReady;
+    s.attempted = false;
+}
+
 coolError_t ensureInitialized() {
     LifecycleState& s = state();
     if (s.attempted) {
@@ -39,7 +54,7 @@ coolError_t ensureInitialized() {
     }
     s.attempted = true;
 
-    const coolBackend* backend = cudaBackend();
+    const coolBackend* backend = g_testBackend != nullptr ? g_testBackend : cudaBackend();
 
     coolError_t err = coolErrorInvalidValue;
     if (backend != nullptr && backend->init != nullptr) {
@@ -54,7 +69,11 @@ coolError_t ensureInitialized() {
 
     s.backend = backend;
     s.result = coolSuccess;
-    std::atexit(finalizeAtExit);
+    /* 只注册一次：测试可能反复注入后端，重复注册会多次触发 finalize。 */
+    if (!s.atexitRegistered) {
+        s.atexitRegistered = true;
+        std::atexit(finalizeAtExit);
+    }
     return coolSuccess;
 }
 

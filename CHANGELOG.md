@@ -9,6 +9,13 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **R 层转发逻辑可在无 GPU 下测试**：新增 `cool::installBackendForTesting()`（内部头
+  `core/lifecycle.hpp`，测试专用），可注入假后端替换真实 cuda 后端。这一点能成立是因为
+  BAL 用函数指针结构体表达能力 —— 转发逻辑本就与后端实现无关。
+  新增 `test_api_dispatch`，**不需要 GPU**（跑在 0.00 s）即覆盖：参数校验先于初始化、
+  懒初始化只发生一次、能力位缺失 → `coolErrorNotSupported`、后端错误码透传到返回值与
+  TLS、实参按值转发（`size` / `coolMemcpyKind` 等）。此前所有测试都依赖真实驱动，
+  R 层的这层逻辑等于没有回归保护。
 - **`dim3` 补齐 CUDA 风格的 C++ 构造函数**（跨项目对齐，hacc TODO 的 B5）：新增
   `dim3(unsigned x = 1, unsigned y = 1, unsigned z = 1)`，支持 `dim3 block(256)` /
   `dim3 grid((n + 255) / 256)` 这类 CUDA 惯用写法（此前只能 `dim3 g = {a,b,c}`）。
@@ -78,6 +85,12 @@ and this project uses semantic versioning when releases are created.
   下游 hacc 的默认链接路径已同步为 `libcoolrt_static.a`。
 
 ### Fixed
+
+- **4 处错误码不符合 BAL 契约**：`coolFree` / `coolMemcpy` / `coolMemset` / `coolFreeHost`
+  在「后端能力位为 `NULL`」时返回 `coolErrorNotReady`，而 `cool_backend.h` 明确约定
+  「未实现该能力则返回 `coolErrorNotSupported`」（其余 API 也都这么做的）。
+  现把「后端未就绪」与「能力未实现」拆成两个判断，分别返回正确错误码。
+  由新增的 `test_api_dispatch` 锁住。
 
 ### Removed
 

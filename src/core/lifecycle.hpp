@@ -24,6 +24,17 @@ coolError_t ensureInitialized();
 /* 返回已初始化的后端；须在 ensureInitialized() 成功后调用。 */
 const coolBackend* activeBackend();
 
+/*
+ * 测试专用：注入替代后端（传 nullptr 恢复默认 cuda 后端）。
+ *
+ * 用途：R 层的转发逻辑（参数校验、能力位检查、错误透传）与后端实现无关，
+ * 用假后端即可在无 GPU 环境下完整覆盖。
+ *
+ * 约束：必须在**任何 cool API 调用之前**、单线程调用一次。
+ * 生产代码不得使用。
+ */
+void installBackendForTesting(const coolBackend* backend);
+
 }  // namespace cool
 
 #endif /* COOL_CORE_LIFECYCLE_HPP */
