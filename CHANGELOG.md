@@ -9,6 +9,15 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **设备端位运算原子（P5.1）**：`device_builtins.h` 新增 `atomicAnd` / `atomicOr` / `atomicXor`
+  各两个重载（`int*` + `unsigned int*`）。纯声明，无运行时改动 —— 位运算不分符号，
+  PTX 均为 `.b32`，重载只为对齐 CUDA 签名。
+  hacc 侧同步补上映射：`atomicrmw and/or/xor` → `atom.global.{and,or,xor}.b32`，
+  真机竞争验证通过（`0 OR 2` 重复 128 次得 2、`0xFFFFFFFF AND 0xFF` 得 `0xFF`）。
+  **已知限制**：hacc 的表达式翻译尚不支持 `<<` `>>` `&` `|` `^` `~`，因此目前只能传
+  字面量或已算好的变量，写不出 `atomicOr(&flag, 1u << tid)` —— 已记入本仓 `docs/TODO.md`
+  与 hacc 的 TODO B9。
+
 - **异步拷贝与页锁定注册（P5.4）**：`coolMemcpyAsync` / `coolMemsetAsync` /
   `coolHostRegister` / `coolHostUnregister`。此前有流、有事件、有 `coolMallocHost`，
   但**所有拷贝都是同步的**，写不出「拷贝与计算重叠」的流水。

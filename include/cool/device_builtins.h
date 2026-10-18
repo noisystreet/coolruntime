@@ -167,6 +167,18 @@ unsigned int atomicMax(unsigned int* address, unsigned int val);
 int atomicCAS(int* address, int compare, int val);
 unsigned int atomicCAS(unsigned int* address, unsigned int compare, unsigned int val);
 
+/* 位运算原子（P5.1）：映射到 atomicrmw and / or / xor。
+ * 位运算不区分有无符号（PTX 均为 .b32），重载只为与 CUDA 签名一致。
+ * 返回值同其它原子算子，为**运算前的旧值**。 */
+int atomicAnd(int* address, int val);
+unsigned int atomicAnd(unsigned int* address, unsigned int val);
+
+int atomicOr(int* address, int val);
+unsigned int atomicOr(unsigned int* address, unsigned int val);
+
+int atomicXor(int* address, int val);
+unsigned int atomicXor(unsigned int* address, unsigned int val);
+
 #endif /* __COOLCC__ */
 
 #endif /* COOL_DEVICE_BUILTINS_H */

@@ -14,8 +14,11 @@
 
 ### A.1 原子补完 —— 性价比最高
 
-- [ ] `atomicAnd` / `atomicOr` / `atomicXor`（`int*` + `unsigned int*` 重载）。
-      hacc 已能把它们映射到 LLVM `atomicrmw`，**只差声明**。
+- [x] `atomicAnd` / `atomicOr` / `atomicXor`（`int*` + `unsigned int*` 重载）—— P5.1 完成。
+      hacc 侧已映射到 `atomicrmw and/or/xor` → `atom.global.{and,or,xor}.b32`，真机竞争验证通过。
+      **但有个真实边界**：hacc 的表达式翻译还不支持 `<<` `>>` `&` `|` `^` `~`，
+      所以目前只能传字面量或已算好的变量，写不出 `atomicOr(&flag, 1u << tid)`。
+      详见 hacc 的 TODO B9 —— 「声明先行、映射跟上」走到这一步，卡的是语言层而非运行时。
 - [ ] 评估 `atomicInc` / `atomicDec`：CUDA 语义是 `old >= val ? 0 : old+1` 的环形计数，
       **无法用 `atomicrmw` 表达**，需要 `llvm.nvvm.atomic.load.inc.32` / `.dec.32`（调研结论见 hacc 的 `docs/m4-subset-s1-plan.md` §3.5）。
 
@@ -36,6 +39,10 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
       不得让 `sinf` 悄悄变成近似 —— 否则用户得到静默错误结果。
 
 ### A.3 warp 原语
+
+> **硬前置**：hacc 的位运算符（`<<` `>>` `&` `|` `^` `~`）尚未支持（hacc TODO B9）。
+> warp 代码的典型写法处处是 `threadIdx.x & 0x1F`、`srcLane ^ 1`，不先解决这一项，
+> 声明与 intrinsic 映射做完也写不出有意义的用例 —— 与 A.1 撞的是同一堵墙。
 
 - [ ] 先 spike：最小 `.cu`（仅 `__shfl_down_sync`）跑通 EDG IL → LLVM → PTX，确认 intrinsic
       名与重载形态（`i32`/`f32`/`b32` 变体），再批量铺。
