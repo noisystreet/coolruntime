@@ -78,6 +78,12 @@ and this project uses semantic versioning when releases are created.
 
 ### Changed
 
+- **`cuda_backend.cpp` 按职责拆分**（994 行 → 4 个模块）：原文件同时装着结果码映射、两个
+  资源注册表、上下文生命周期和 40 个 BAL 适配函数。现拆为：
+  `cuda_result_map`（`CUresult` → `coolError_t`）、`cuda_registry`（内存与句柄登记）、
+  `cuda_context`（上下文与生命周期）、`cuda_backend`（BAL 适配层 + 后端描述符）。
+  纯结构调整、零行为变化。命名同时澄清：`cuResultToCool` → `cuda::resultToError`、
+  `registry()` → `cuda::allocations()`、`handleRegistry()` → `cuda::handles()`。
 - **`lastError` 现在在成功调用后也刷新（对齐 cudart）**：`error.hpp` 一直声明「每次 API
   调用成功/失败都会刷新 TLS」，但实现只在失败路径写入，成功路径直接返回 `coolSuccess`。
   于是「失败 → 紧接着成功 → `coolPeekAtLastError()`」仍返回**上一次**的错误码，容易把

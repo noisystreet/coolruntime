@@ -66,6 +66,9 @@ set(COOLRUNTIME_SOURCES
     src/core/error.cpp
     src/core/lifecycle.cpp
     src/backend/bootstrap.cpp
+    src/backend/cuda/cuda_result_map.cpp
+    src/backend/cuda/cuda_registry.cpp
+    src/backend/cuda/cuda_context.cpp
     src/backend/cuda/cuda_backend.cpp)
 
 add_library(coolruntime_objects OBJECT ${COOLRUNTIME_SOURCES})
