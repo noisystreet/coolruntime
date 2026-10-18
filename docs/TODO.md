@@ -69,11 +69,16 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
 - [x] `coolMemsetAsync(ptr, value, count, stream)`
 - [x] `coolHostRegister` / `coolHostUnregister`（页锁定任意主机内存）
 
-### B.2 查询类与元数据
+### B.2 查询类与元数据（✅ P5.5 完成）
 
-- [ ] `coolStreamGetPriority` / `coolStreamGetFlags`
-- [ ] `coolDeviceGetStreamPriorityRange`（没有它，`coolStreamCreateWithPriority` 的参数靠猜）
-- [ ] `coolFuncGetAttributes`（对端 hacc 的 S2 需要内核元数据）
+- [x] `coolStreamGetPriority` / `coolStreamGetFlags` → `cuStreamGetPriority` / `cuStreamGetFlags`
+- [x] `coolDeviceGetStreamPriorityRange`（没有它，`coolStreamCreateWithPriority` 的参数靠猜）
+      → `cuCtxGetStreamPriorityRange`。**语义易搞反：数值越小优先级越高**，
+      `leastPriority` 是数值最大的一端（实测本机 0），`greatestPriority` 是最小的一端（-5）。
+- [x] `coolFuncGetAttributes`（对端 hacc 的 S2 需要内核元数据）
+      新增公开结构体 `coolFuncAttributes`（5 项），Driver 侧无批量接口，
+      由后端循环调用 `cuFuncGetAttribute` 填充。
+      与 cudart 的差异：不含 `binaryVersion` / `cacheModeCA` / cluster 字段，字段只增不改。
 
 ---
 

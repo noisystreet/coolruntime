@@ -9,6 +9,22 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **查询类与元数据 API（P5.5）**：补齐 `coolStreamGetPriority` / `coolStreamGetFlags` /
+  `coolDeviceGetStreamPriorityRange` / `coolFuncGetAttributes`，均为薄透传
+  （`cuStreamGetPriority` / `cuStreamGetFlags` / `cuCtxGetStreamPriorityRange` /
+  逐项 `cuFuncGetAttribute`）。
+  新增公开结构体 **`coolFuncAttributes`**（5 项：`maxThreadsPerBlock` / `numRegs` /
+  `sharedSizeBytes` / `localSizeBytes` / `constSizeBytes`）。Driver 侧没有 cudart 那样的批量
+  查询接口，故由后端循环填；不含 `binaryVersion` / `cacheModeCA` / cluster 字段，字段只增不改。
+  **踩到一处语义坑并已纠正**：流优先级**数值越小优先级越高**，
+  所以 `leastPriority` 是数值**最大**的一端（本机实测 0）、`greatestPriority` 是最小的一端（-5），
+  有效区间 `[greatestPriority, leastPriority]`。我最初把注释和测试断言都写反了，
+  是 `test_query` 跑出 `[0, -5]` 才暴露。
+  新增 `tests/unit/test_query.cpp`（30 项检查）：参数校验（含未注册 kernel 句柄必须被拒
+  且**失败时不改写输出结构**）、优先级范围单调性、默认流优先级/标志恒为 0、
+  「按最高优先级 + non-blocking 建流后原样读出」、内嵌 PTX 读内核属性。
+  `make check` **14/14**。
+
 - **设备端位运算原子（P5.1）**：`device_builtins.h` 新增 `atomicAnd` / `atomicOr` / `atomicXor`
   各两个重载（`int*` + `unsigned int*`）。纯声明，无运行时改动 —— 位运算不分符号，
   PTX 均为 `.b32`，重载只为对齐 CUDA 签名。

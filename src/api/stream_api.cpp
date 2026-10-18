@@ -54,3 +54,21 @@ extern "C" coolError_t coolStreamWaitEvent(coolStream_t stream, coolEvent_t even
     COOL_API_GUARD(backend->streamWaitEvent(stream, event));
     return coolSuccess;
 }
+
+extern "C" coolError_t coolStreamGetPriority(int* priority, coolStream_t stream) {
+    if (priority == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(streamGetPriority);
+    COOL_API_GUARD(backend->streamGetPriority(priority, stream));
+    return coolSuccess;
+}
+
+extern "C" coolError_t coolStreamGetFlags(unsigned int* flags, coolStream_t stream) {
+    if (flags == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(streamGetFlags);
+    COOL_API_GUARD(backend->streamGetFlags(flags, stream));
+    return coolSuccess;
+}

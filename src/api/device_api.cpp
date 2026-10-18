@@ -64,3 +64,12 @@ extern "C" coolError_t coolDeviceReset(void) {
     COOL_API_GUARD(backend->deviceReset());
     return coolSuccess;
 }
+
+extern "C" coolError_t coolDeviceGetStreamPriorityRange(int* leastPriority, int* greatestPriority) {
+    if (leastPriority == nullptr || greatestPriority == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(deviceGetStreamPriorityRange);
+    COOL_API_GUARD(backend->deviceGetStreamPriorityRange(leastPriority, greatestPriority));
+    return coolSuccess;
+}

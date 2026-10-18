@@ -72,6 +72,16 @@ coolError_t coolDeviceSynchronize(void);
 /* 释放运行时持有的该设备资源。 */
 coolError_t coolDeviceReset(void);
 
+/*
+ * 取该设备支持的流优先级范围（对应 cudaDeviceGetStreamPriorityRange）。
+ *
+ * 语义容易搞反，务必注意：**数值越小，优先级越高**。
+ *   - `leastPriority`    最低优先级，数值**最大**的一端（多数设备为 0）
+ *   - `greatestPriority` 最高优先级，数值**最小**的一端（多数设备为 -5）
+ * 有意义区间是 [greatestPriority, leastPriority]；区间外的优先级创建流时会被驱动钳制。
+ */
+coolError_t coolDeviceGetStreamPriorityRange(int* leastPriority, int* greatestPriority);
+
 /* ------------------------------------------------------------------ */
 /* 内存管理（对应 cudaMalloc / cudaMemcpy 等）                        */
 /* ------------------------------------------------------------------ */
@@ -183,6 +193,12 @@ coolError_t coolStreamQuery(coolStream_t stream);
 /* 令 stream 等待 event。 */
 coolError_t coolStreamWaitEvent(coolStream_t stream, coolEvent_t event);
 
+/* 取流的优先级（对应 cudaStreamGetPriority）；结果写入 *priority。NULL 表示默认流。 */
+coolError_t coolStreamGetPriority(int* priority, coolStream_t stream);
+
+/* 取流的创建标志（对应 cudaStreamGetFlags）；结果写入 *flags。NULL 表示默认流。 */
+coolError_t coolStreamGetFlags(unsigned int* flags, coolStream_t stream);
+
 /* ------------------------------------------------------------------ */
 /* 事件管理（对应 cudaEventCreate / cudaEventRecord 等）              */
 /* ------------------------------------------------------------------ */
@@ -240,6 +256,14 @@ coolError_t coolOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlocks, coolKe
 coolError_t coolOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize,
                                                coolKernel_t kernel, size_t dynamicSMemSize,
                                                int blockSizeLimit);
+
+/*
+ * 取内核函数属性（对应 cudaFuncGetAttributes），结果写入 *attr。
+ *
+ * Driver 侧只有逐属性查询的 cuFuncGetAttribute，本实现在后端循环填满
+ * coolFuncAttributes 的 5 个字段（见 cool_types.h）。任一属性查询失败即整体失败。
+ */
+coolError_t coolFuncGetAttributes(coolFuncAttributes* attr, coolKernel_t kernel);
 
 /*
  * 可选：把 cudart 名称映射到 cool 名称，便于把小型 CUDA 示例

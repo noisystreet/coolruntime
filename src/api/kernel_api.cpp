@@ -83,3 +83,12 @@ extern "C" coolError_t coolOccupancyMaxPotentialBlockSize(int* minGridSize, int*
                                                            dynamicSMemSize, blockSizeLimit));
     return coolSuccess;
 }
+
+extern "C" coolError_t coolFuncGetAttributes(coolFuncAttributes* attr, coolKernel_t kernel) {
+    if (attr == nullptr || kernel == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(funcGetAttributes);
+    COOL_API_GUARD(backend->funcGetAttributes(attr, kernel));
+    return coolSuccess;
+}

@@ -32,6 +32,8 @@ typedef struct coolBackend {
     coolError_t (*getDeviceProperties)(int dev, coolDeviceProp* prop);
     coolError_t (*deviceSynchronize)(void);
     coolError_t (*deviceReset)(void);
+    /* P5.5：流优先级范围（context 级，对应 cuCtxGetStreamPriorityRange）。 */
+    coolError_t (*deviceGetStreamPriorityRange)(int* leastPriority, int* greatestPriority);
 
     /* 内存 */
     coolError_t (*malloc)(void** p, size_t size);
@@ -63,6 +65,9 @@ typedef struct coolBackend {
     coolError_t (*streamSynchronize)(coolStream_t s);
     coolError_t (*streamQuery)(coolStream_t s);
     coolError_t (*streamWaitEvent)(coolStream_t s, coolEvent_t e);
+    /* P5.5：流属性查询。 */
+    coolError_t (*streamGetPriority)(int* priority, coolStream_t s);
+    coolError_t (*streamGetFlags)(unsigned int* flags, coolStream_t s);
 
     /* 事件 */
     coolError_t (*eventCreate)(coolEvent_t* e, unsigned flags);
@@ -84,6 +89,8 @@ typedef struct coolBackend {
     coolError_t (*occupancyMaxPotentialBlockSize)(int* minGridSize, int* blockSize,
                                                   const coolKernel* k, size_t dynamicSMemSize,
                                                   int blockSizeLimit);
+    /* P5.5：内核函数属性（Driver 侧逐属性查询，由后端填满结构体）。 */
+    coolError_t (*funcGetAttributes)(coolFuncAttributes* attr, const coolKernel* k);
 
     /*
      * 扩展成员：BAL 契约未列出驱动版本查询，但版本管理要求

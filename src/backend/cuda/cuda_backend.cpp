@@ -98,6 +98,17 @@ coolError_t cudaDeviceReset(void) {
     return cuda::init();
 }
 
+coolError_t cudaDeviceGetStreamPriorityRange(int* leastPriority, int* greatestPriority) {
+    if (leastPriority == nullptr || greatestPriority == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    return resultToError(cuCtxGetStreamPriorityRange(leastPriority, greatestPriority));
+}
+
 coolError_t cudaDriverGetVersion(int* version) {
     if (version == nullptr) {
         return coolErrorInvalidValue;
@@ -551,6 +562,34 @@ coolError_t cudaStreamWaitEvent(coolStream_t stream, coolEvent_t event) {
         cuStreamWaitEvent(reinterpret_cast<CUstream>(stream), reinterpret_cast<CUevent>(event), 0));
 }
 
+coolError_t cudaStreamGetPriority(int* priority, coolStream_t stream) {
+    if (priority == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (stream != nullptr && !handles().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    return resultToError(cuStreamGetPriority(reinterpret_cast<CUstream>(stream), priority));
+}
+
+coolError_t cudaStreamGetFlags(unsigned int* flags, coolStream_t stream) {
+    if (flags == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (stream != nullptr && !handles().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    return resultToError(cuStreamGetFlags(reinterpret_cast<CUstream>(stream), flags));
+}
+
 coolError_t cudaEventCreate(coolEvent_t* event, unsigned flags) {
     if (event == nullptr) {
         return coolErrorInvalidValue;
@@ -799,6 +838,41 @@ coolError_t cudaOccupancyMaxPotentialBlockSize(int* minGridSize, int* blockSize,
         blockSizeLimit));
 }
 
+coolError_t cudaFuncGetAttributes(coolFuncAttributes* attr, const coolKernel* kernel) {
+    if (attr == nullptr || kernel == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (!handles().hasFunction(handleAddr(kernel))) {
+        return coolErrorInvalidValue;
+    }
+
+    CUfunction func = reinterpret_cast<CUfunction>(const_cast<coolKernel*>(kernel));
+    /* Driver 只有逐属性查询（没有 cudart 那样的批量 cudaFuncGetAttributes），
+     * 故按 coolFuncAttributes 的字段逐项填；任一失败即整体失败。 */
+    struct Query {
+        CUfunction_attribute attrib;
+        int* out;
+    };
+    const Query queries[] = {
+        {CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, &attr->maxThreadsPerBlock},
+        {CU_FUNC_ATTRIBUTE_NUM_REGS, &attr->numRegs},
+        {CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, &attr->sharedSizeBytes},
+        {CU_FUNC_ATTRIBUTE_LOCAL_SIZE_BYTES, &attr->localSizeBytes},
+        {CU_FUNC_ATTRIBUTE_CONST_SIZE_BYTES, &attr->constSizeBytes},
+    };
+    for (const Query& q : queries) {
+        const CUresult res = cuFuncGetAttribute(q.out, q.attrib, func);
+        if (res != CUDA_SUCCESS) {
+            return resultToError(res);
+        }
+    }
+    return coolSuccess;
+}
+
 }  // namespace
 
 const coolBackend* cudaBackend() {
@@ -811,6 +885,7 @@ const coolBackend* cudaBackend() {
         cudaGetDeviceProperties,                       /* getDeviceProperties */
         cudaDeviceSynchronize,                         /* deviceSynchronize */
         cudaDeviceReset,                               /* deviceReset */
+        cudaDeviceGetStreamPriorityRange,              /* deviceGetStreamPriorityRange */
         cudaMalloc,                                    /* malloc */
         cudaFree,                                      /* free */
         cudaMallocHost,                                /* mallocHost */
@@ -831,6 +906,8 @@ const coolBackend* cudaBackend() {
         cudaStreamSynchronize,                         /* streamSynchronize */
         cudaStreamQuery,                               /* streamQuery */
         cudaStreamWaitEvent,                           /* streamWaitEvent */
+        cudaStreamGetPriority,                         /* streamGetPriority */
+        cudaStreamGetFlags,                            /* streamGetFlags */
         cudaEventCreate,                               /* eventCreate */
         cudaEventDestroy,                              /* eventDestroy */
         cudaEventRecord,                               /* eventRecord */
@@ -845,6 +922,7 @@ const coolBackend* cudaBackend() {
         cudaOccupancyMaxActiveBlocksPerMultiprocessor, /* occupancyMaxActiveBlocksPerMultiprocessor
                                                         */
         cudaOccupancyMaxPotentialBlockSize,            /* occupancyMaxPotentialBlockSize */
+        cudaFuncGetAttributes,                         /* funcGetAttributes */
         cudaDriverGetVersion,                          /* driverGetVersion */
     };
     return &backend;

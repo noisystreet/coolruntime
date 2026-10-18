@@ -124,6 +124,21 @@ typedef struct coolSymbolDesc {
     size_t size;
 } coolSymbolDesc;
 
+/*
+ * 内核函数属性（P5.5）：对应 cudaFuncAttributes 的核心子集。
+ *
+ * 与 cudart 的差异：只暴露 Driver API 能直接查到的 5 项（cuFuncGetAttribute 逐项查询，
+ * Driver 侧没有批量接口），不含 binaryVersion / cacheModeCA / cluster 等字段 ——
+ * 那些要么需要额外上下文，要么尚无用例。字段只增不改，后续按需扩展。
+ */
+typedef struct coolFuncAttributes {
+    int maxThreadsPerBlock; /* 单块最大线程数 */
+    int numRegs;            /* 每线程寄存器用量 */
+    int sharedSizeBytes;    /* 静态共享内存字节数 */
+    int localSizeBytes;     /* 每线程本地内存字节数 */
+    int constSizeBytes;     /* 用户常量区字节数 */
+} coolFuncAttributes;
+
 #ifdef __cplusplus
 }
 #endif
