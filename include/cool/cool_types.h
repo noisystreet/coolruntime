@@ -52,11 +52,23 @@ typedef enum coolEventFlags {
     coolEventInterprocess = 0x04
 } coolEventFlags;
 
-/* 3D 维度（grid/block），默认各维为 1。 */
+/* 3D 维度（grid/block），默认各维为 1。
+ *
+ * **归属**：`dim3` 由本头唯一提供（coolrt 公开契约）。hacc 的 `hacc_runtime.h` 只
+ * 消费、不定义——两侧另立同义类型会破坏 `coolLaunchKernel` 的 C ABI 一致性。
+ *
+ * **C++ 构造函数**：对齐 CUDA 的 `dim3(x, y, z)` 用法（如 `dim3 grid((n+255)/256)`）。
+ * 代价是 dim3 在 C++ 下**不再是聚合类型**，`dim3{x,y,z}` 改走构造函数（语义等价）；
+ * C 下仍是纯聚合 struct，字段布局与 ABI 不变（12 字节、对齐 4）。
+ */
 typedef struct dim3 {
     unsigned int x;
     unsigned int y;
     unsigned int z;
+#ifdef __cplusplus
+    /* 默认参数对齐 CUDA：`dim3 d;` 即 (1, 1, 1)。 */
+    dim3(unsigned int vx = 1, unsigned int vy = 1, unsigned int vz = 1) : x(vx), y(vy), z(vz) {}
+#endif
 } dim3;
 
 /* 简化版设备属性，对应 cudart 的 cudaDeviceProp。 */

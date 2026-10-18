@@ -9,6 +9,16 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **`dim3` 补齐 CUDA 风格的 C++ 构造函数**（跨项目对齐，hacc TODO 的 B5）：新增
+  `dim3(unsigned x = 1, unsigned y = 1, unsigned z = 1)`，支持 `dim3 block(256)` /
+  `dim3 grid((n + 255) / 256)` 这类 CUDA 惯用写法（此前只能 `dim3 g = {a,b,c}`）。
+  默认构造为 `(1,1,1)`，与 CUDA 一致（此前是未初始化）。
+  **ABI 不变**：仍是 12 字节、对齐 4、可平凡复制（`coolLaunchKernel` 按值传 grid/block 的前提），
+  C 下仍是纯聚合 struct（`#ifdef __cplusplus` 包住构造函数）。
+  副作用：`dim3` 在 C++ 下不再是聚合类型，`dim3{x,y,z}` 改走构造函数（语义等价；hacc 的
+  `to_dim3` 依赖这一点，已在其注释里写明）。
+  新增 `test_dim3`：构造语义、默认值、`sizeof`/`alignof`/`is_trivially_copyable`、非聚合性。
+
 - 共享库产物 `libcoolrt.so`（与静态库同源；经 OBJECT 库复用，不重复编译）。
 - **Debian 打包**：`make package` 生成 `libcoolrt0_<ver>_<arch>.deb`（运行时）与
   `libcoolrt-dev_<ver>_<arch>.deb`（开发包）。按 Debian 惯例拆包：运行时包只带 soname
@@ -45,6 +55,13 @@ and this project uses semantic versioning when releases are created.
   `atomicExch` / `atomicMin` / `atomicMax` / `atomicCAS`，覆盖 `int` / `unsigned int` / `float`
   常用重载（`atomicAdd` 与 `atomicExch` 含 unsigned 重载；`atomicMin`/`atomicMax` 靠有符号与
   无符号重载区分语义）。由 `coolicc` 按名字映射到 LLVM `atomicrmw` / `cmpxchg`；返回运算前旧值。
+- 设备符号拷入接口 `coolMemcpyToSymbol`（API 对齐 cudart 的 `cudaMemcpyToSymbol`）：
+  `(symbol, src, count, offset, kind)`，把主机 / 设备内存写入设备符号；`kind` 支持
+  `coolMemcpyHostToDevice`（默认语义）与 `coolMemcpyDeviceToDevice`，其余方向返回
+  `coolErrorInvalidValue`，`offset + count` 越界亦拒绝。`symbol` 传 `coolSymbolDesc`
+  描述符地址（替代 cudart 的「主机侧符号地址」编译期魔法，由 hacc 主机桩构造）。
+  后端函数表新增 `memcpyToSymbol`，`cuda` 后端经 `cuModuleGetGlobal` 解析符号地址后
+  走 `cuMemcpyHtoD` / `cuMemcpyDtoD`。同时提供 `cudaMemcpyToSymbol` 兼容别名（宏）。
 - 设备符号拷出接口 `coolMemcpyFromSymbol`（API 对齐 cudart 的 `cudaMemcpyFromSymbol`）：
   与既有的 `coolMemcpyToSymbol` 对称，覆盖「设备符号 → 主机 / 设备内存」方向。
   `kind` 只接受 `coolMemcpyDeviceToHost`（默认语义）与 `coolMemcpyDeviceToDevice`，
