@@ -55,16 +55,33 @@ class AllocationRegistry {
         host_.erase(ptr);
     }
 
+    /*
+     * 页锁定注册表（coolHostRegister）：与 host_ 分开记录，因为「注册的既有内存」
+     * 与「mallocHost 分配的内存」在 unregister / freeHost 上必须是两条不同的路径。
+     * 判重与「未注册」由驱动权威判定，这里只用于最终清理。
+     */
+    void addRegisteredHost(std::uintptr_t ptr, std::size_t size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        registeredHost_[ptr] = size;
+    }
+
+    void removeRegisteredHost(std::uintptr_t ptr) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        registeredHost_.erase(ptr);
+    }
+
     void clear() {
         std::lock_guard<std::mutex> lock(mutex_);
         device_.clear();
         host_.clear();
+        registeredHost_.clear();
     }
 
    private:
     std::mutex mutex_;
     std::unordered_map<std::uintptr_t, std::size_t> device_;
     std::unordered_map<std::uintptr_t, std::size_t> host_;
+    std::unordered_map<std::uintptr_t, std::size_t> registeredHost_;
 };
 
 /*

@@ -189,6 +189,104 @@ coolError_t cudaMemset(void* ptr, int value, size_t count) {
         cuMemsetD8(reinterpret_cast<CUdeviceptr>(ptr), static_cast<unsigned char>(value), count));
 }
 
+/*
+ * 按方向分派异步拷贝。
+ *
+ * Driver API 没有 HtoHAsync —— 主机→主机的「异步」拷贝在 cudart 里也是同步执行的，
+ * 故这里退回 cuMemcpy。coolMemcpyDefault 用 cuMemcpyAsync，由驱动依据统一寻址下的
+ * 指针属性推断方向。
+ */
+CUresult asyncMemcpyByKind(void* dst, const void* src, size_t count, coolMemcpyKind kind,
+                           CUstream stream) {
+    switch (kind) {
+        case coolMemcpyHostToDevice:
+            return cuMemcpyHtoDAsync(reinterpret_cast<CUdeviceptr>(dst), src, count, stream);
+        case coolMemcpyDeviceToHost:
+            return cuMemcpyDtoHAsync(dst, reinterpret_cast<CUdeviceptr>(src), count, stream);
+        case coolMemcpyDeviceToDevice:
+            return cuMemcpyDtoDAsync(reinterpret_cast<CUdeviceptr>(dst),
+                                     reinterpret_cast<CUdeviceptr>(src), count, stream);
+        case coolMemcpyDefault:
+            return cuMemcpyAsync(reinterpret_cast<CUdeviceptr>(dst),
+                                 reinterpret_cast<CUdeviceptr>(src), count, stream);
+        case coolMemcpyHostToHost:
+            return cuMemcpy(reinterpret_cast<CUdeviceptr>(dst), reinterpret_cast<CUdeviceptr>(src),
+                            count);
+        default:
+            return CUDA_ERROR_INVALID_VALUE;
+    }
+}
+
+coolError_t cudaMemcpyAsync(void* dst, const void* src, size_t count, coolMemcpyKind kind,
+                            coolStream_t stream) {
+    if (dst == nullptr || src == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (stream != nullptr && !handles().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    /* count 为 0 是合法空操作，驱动同样接受。 */
+    return resultToError(
+        asyncMemcpyByKind(dst, src, count, kind, reinterpret_cast<CUstream>(stream)));
+}
+
+coolError_t cudaMemsetAsync(void* ptr, int value, size_t count, coolStream_t stream) {
+    if (ptr == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    if (stream != nullptr && !handles().hasStream(handleAddr(stream))) {
+        return coolErrorInvalidValue;
+    }
+    return resultToError(cuMemsetD8Async(reinterpret_cast<CUdeviceptr>(ptr),
+                                         static_cast<unsigned char>(value & 0xFF), count,
+                                         reinterpret_cast<CUstream>(stream)));
+}
+
+coolError_t cudaMemHostRegister(void* ptr, size_t size, unsigned flags) {
+    if (ptr == nullptr || size == 0) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    /*
+     * 不自行判重：驱动对已注册地址返回 CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED，
+     * 经 resultToError 映射为 coolErrorHostMemoryAlreadyRegistered。以驱动为准可避开
+     * 「先查表再注册」的 TOCTOU 窗口。
+     */
+    const CUresult res = cuMemHostRegister(ptr, size, flags);
+    if (res != CUDA_SUCCESS) {
+        return resultToError(res);
+    }
+    allocations().addRegisteredHost(handleAddr(ptr), size);
+    return coolSuccess;
+}
+
+coolError_t cudaMemHostUnregister(void* ptr) {
+    if (ptr == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const coolError_t err = ensureContext();
+    if (err != coolSuccess) {
+        return err;
+    }
+    const CUresult res = cuMemHostUnregister(ptr);
+    if (res != CUDA_SUCCESS) {
+        return resultToError(res);
+    }
+    allocations().removeRegisteredHost(handleAddr(ptr));
+    return coolSuccess;
+}
+
 coolError_t cudaMemGetInfo(size_t* freeBytes, size_t* totalBytes) {
     if (freeBytes == nullptr || totalBytes == nullptr) {
         return coolErrorInvalidValue;
@@ -724,6 +822,10 @@ const coolBackend* cudaBackend() {
         cudaMemcpyFromSymbol,                          /* memcpyFromSymbol */
         cudaGetSymbolAddress,                          /* getSymbolAddress */
         cudaGetSymbolSize,                             /* getSymbolSize */
+        cudaMemcpyAsync,                               /* memcpyAsync */
+        cudaMemsetAsync,                               /* memsetAsync */
+        cudaMemHostRegister,                           /* memHostRegister */
+        cudaMemHostUnregister,                         /* memHostUnregister */
         cudaStreamCreate,                              /* streamCreate */
         cudaStreamDestroy,                             /* streamDestroy */
         cudaStreamSynchronize,                         /* streamSynchronize */

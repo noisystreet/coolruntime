@@ -54,14 +54,13 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
 
 ## B. 主机端
 
-### B.1 异步拷贝 —— 流才真正有用
+### B.1 异步拷贝 —— 流才真正有用（✅ 已完成）
 
-> 现状：有流、有事件、有 `coolMallocHost`，但**所有拷贝都是同步的**，写不出拷贝/计算重叠。
+> 有流、有事件、有 `coolMallocHost`，此前**所有拷贝都是同步的**，写不出拷贝/计算重叠。
 
-- [ ] `coolMemcpyAsync(dst, src, count, kind, stream)`
-- [ ] `coolMemsetAsync(ptr, value, count, stream)`
-- [ ] `coolHostRegister` / `coolHostUnregister`（页锁定任意主机内存）——
-      `cuMemcpyAsync` 对 pageable 内存会退化或报错，没有它异步没有意义。
+- [x] `coolMemcpyAsync(dst, src, count, kind, stream)`
+- [x] `coolMemsetAsync(ptr, value, count, stream)`
+- [x] `coolHostRegister` / `coolHostUnregister`（页锁定任意主机内存）
 
 ### B.2 查询类与元数据
 

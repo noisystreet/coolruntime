@@ -9,6 +9,19 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **异步拷贝与页锁定注册（P5.4）**：`coolMemcpyAsync` / `coolMemsetAsync` /
+  `coolHostRegister` / `coolHostUnregister`。此前有流、有事件、有 `coolMallocHost`，
+  但**所有拷贝都是同步的**，写不出「拷贝与计算重叠」的流水。
+  - `coolMemcpyAsync` 按 `kind` 分派到 `cuMemcpyHtoDAsync` / `DtoHAsync` / `DtoDAsync`；
+    `coolMemcpyDefault` 走 `cuMemcpyAsync`（UVA 下由驱动推断方向）；
+    `coolMemcpyHostToHost` 因 Driver API 无 `HtoHAsync` 退化为同步 `cuMemcpy`（与 cudart 一致）。
+  - `coolHostRegister` 的判重与「未注册」交给驱动权威判定，经 `resultToError` 映射为新增的
+    `coolErrorHostMemoryAlreadyRegistered`(711) / `coolErrorHostMemoryNotRegistered`(712)，
+    数值与 cudart 对齐；以驱动为准可避开「先查表再注册」的 TOCTOU 窗口。
+  - 后端注册表新增 `registeredHost_`（与 `mallocHost` 用的 `host_` 分开），用于最终清理。
+  - 新增 `test_mem_async`：参数与句柄校验、`H2D → D2H` 异步流水（自定义流与默认流）、
+    异步 `memset` 往返、注册状态机（重复注册 / 重复注销）。
+    刻意**不**断言「确实发生了重叠」—— 那取决于驱动与硬件调度，无法在单元测试里稳定观测。
 - **`docs/TODO.md`**：把设备内建（原子补完 / 数学函数 / warp 原语 / 位操作 / `__ldg` 等）、
   主机异步拷贝与查询类 API 的待办，连同 Non-Goals 集中到一处。
   此前这些只知道「缺什么」，散落在 `ARCHITECTURE.md` 的 3 行 Open Decisions 里，没有可跟踪的清单。

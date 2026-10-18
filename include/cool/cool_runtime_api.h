@@ -11,6 +11,8 @@
  * 阶段 P1 覆盖：内存管理（6.4，含同步拷贝/填充与页锁定主机内存）。
  * 阶段 P2 覆盖：流管理、事件管理。
  * 阶段 P3 覆盖：模块与内核启动。
+ * 阶段 P5 覆盖：异步拷贝（coolMemcpyAsync / coolMemsetAsync）与页锁定注册
+ *               （coolHostRegister / coolHostUnregister）。
  */
 #ifndef COOL_RUNTIME_API_H
 #define COOL_RUNTIME_API_H
@@ -86,6 +88,23 @@ coolError_t coolMemcpy(void* dst, const void* src, size_t count, coolMemcpyKind 
 /* 将设备内存前 count 字节设为 value 的低 8 位。 */
 coolError_t coolMemset(void* ptr, int value, size_t count);
 
+/*
+ * 异步拷贝（对应 cudaMemcpyAsync）。
+ *
+ * 把拷贝排入 stream 后立即返回，由该流保证顺序；stream 为 NULL 时用 legacy 默认流
+ * （见 ADR 0005）。与 coolMemcpy 的区别仅在于是否等待拷贝完成。
+ *
+ * 主机侧缓冲区应为页锁定内存（coolMallocHost 或 coolHostRegister），否则驱动会把
+ * 拷贝退化为同步执行，异步重叠失效 —— 这是 CUDA 自身的约束，coolrt 不做规避。
+ * kind 为 coolMemcpyHostToHost 时驱动无对应 async 入口，内部按同步拷贝执行
+ * （与 cudart 一致）。
+ */
+coolError_t coolMemcpyAsync(void* dst, const void* src, size_t count, coolMemcpyKind kind,
+                            coolStream_t stream);
+
+/* 异步填充（对应 cudaMemsetAsync）：把 ptr 前 count 字节设为 value 的低 8 位，排入 stream。 */
+coolError_t coolMemsetAsync(void* ptr, int value, size_t count, coolStream_t stream);
+
 /* 查询设备内存空闲与总量（字节）。 */
 coolError_t coolMemGetInfo(size_t* freeBytes, size_t* totalBytes);
 
@@ -94,6 +113,21 @@ coolError_t coolMallocHost(void** ptr, size_t size);
 
 /* 释放页锁定主机内存；ptr 为 NULL 时为空操作。 */
 coolError_t coolFreeHost(void* ptr);
+
+/*
+ * 把一段已存在的主机内存注册为页锁定（对应 cudaHostRegister）。
+ *
+ * 与 coolMallocHost 的区别：后者分配并锁定，前者锁定调用方已有的缓冲区。
+ * flags 取值见 coolHostRegisterFlags。重复注册同一地址返回
+ * coolErrorHostMemoryAlreadyRegistered；注册后须用 coolHostUnregister 解除。
+ */
+coolError_t coolHostRegister(void* ptr, size_t size, unsigned int flags);
+
+/*
+ * 解除页锁定（对应 cudaHostUnregister）。
+ * 未注册的地址返回 coolErrorHostMemoryNotRegistered。
+ */
+coolError_t coolHostUnregister(void* ptr);
 
 /*
  * 把主机数据拷入设备符号（对应 cudaMemcpyToSymbol）。

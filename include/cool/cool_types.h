@@ -25,6 +25,8 @@ typedef enum coolError {
     coolErrorInvalidDevice = 10,
     coolErrorInvalidResourceHandle = 400,
     coolErrorNotReady = 600,
+    coolErrorHostMemoryAlreadyRegistered = 711,
+    coolErrorHostMemoryNotRegistered = 712,
     coolErrorNotSupported = 801,
     coolErrorUnknown = 999
 } coolError_t;
@@ -43,6 +45,13 @@ typedef enum coolStreamFlags {
     coolStreamDefault = 0x00,
     coolStreamNonBlocking = 0x01
 } coolStreamFlags;
+
+/* 页锁定注册标志，与 cudart 的 cudaHostRegisterFlags 对应。 */
+typedef enum coolHostRegisterFlags {
+    coolHostRegisterDefault = 0x00,
+    coolHostRegisterPortable = 0x01,
+    coolHostRegisterMapped = 0x02
+} coolHostRegisterFlags;
 
 /* 事件创建标志，与 cudart 的 cudaEventFlags 对应。 */
 typedef enum coolEventFlags {

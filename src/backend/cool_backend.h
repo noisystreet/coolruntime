@@ -49,6 +49,13 @@ typedef struct coolBackend {
                                     coolMemcpyKind kind);
     coolError_t (*getSymbolAddress)(void** devPtr, const void* symbol);
     coolError_t (*getSymbolSize)(size_t* size, const void* symbol);
+    /* P5.4：异步拷贝与填充（排入 stream，不等待完成）。 */
+    coolError_t (*memcpyAsync)(void* dst, const void* src, size_t count, coolMemcpyKind kind,
+                               coolStream_t s);
+    coolError_t (*memsetAsync)(void* p, int value, size_t count, coolStream_t s);
+    /* P5.4：把既有主机内存注册为页锁定。 */
+    coolError_t (*memHostRegister)(void* p, size_t size, unsigned flags);
+    coolError_t (*memHostUnregister)(void* p);
 
     /* 流 */
     coolError_t (*streamCreate)(coolStream_t* s, unsigned flags, int priority);

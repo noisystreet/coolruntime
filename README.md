@@ -45,6 +45,7 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 | 错误处理 | `coolGetErrorString` / `coolGetErrorName` / `coolGetLastError` / `coolPeekAtLastError` |
 | 设备管理 | `coolGetDeviceCount` / `coolSetDevice` / `coolGetDevice` / `coolGetDeviceProperties` / `coolDeviceSynchronize` / `coolDeviceReset` |
 | 内存管理 | `coolMalloc` / `coolFree` / `coolMemcpy` / `coolMemset` / `coolMemGetInfo` / `coolMallocHost` / `coolFreeHost` |
+| 异步与页锁定 | `coolMemcpyAsync` / `coolMemsetAsync` / `coolHostRegister` / `coolHostUnregister` |
 | 流管理 | `coolStreamCreate` / `coolStreamCreateWithFlags` / `coolStreamCreateWithPriority` / `coolStreamDestroy` / `coolStreamSynchronize` / `coolStreamQuery` / `coolStreamWaitEvent` |
 | 事件管理 | `coolEventCreate` / `coolEventCreateWithFlags` / `coolEventDestroy` / `coolEventRecord` / `coolEventSynchronize` / `coolEventQuery` / `coolEventElapsedTime` |
 | 模块与内核 | `coolModuleLoadData` / `coolModuleLoadFromFile` / `coolModuleGetFunction` / `coolModuleUnload` / `coolLaunchKernel` / `coolOccupancyMaxActiveBlocksPerMultiprocessor` / `coolOccupancyMaxPotentialBlockSize` |

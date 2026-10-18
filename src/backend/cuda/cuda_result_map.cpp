@@ -42,6 +42,10 @@ constexpr Mapping kMappings[] = {
     /* 句柄 */
     {CUDA_ERROR_INVALID_HANDLE, coolErrorInvalidResourceHandle},
 
+    /* 页锁定主机内存：注册状态与 cudart 保持一一对应 */
+    {CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED, coolErrorHostMemoryAlreadyRegistered},
+    {CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED, coolErrorHostMemoryNotRegistered},
+
     /* 就绪/支持性：初始化与反初始化都归为「后端未就绪」 */
     {CUDA_ERROR_NOT_READY, coolErrorNotReady},
     {CUDA_ERROR_NOT_INITIALIZED, coolErrorNotReady},

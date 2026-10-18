@@ -33,6 +33,25 @@ extern "C" coolError_t coolMemset(void* ptr, int value, size_t count) {
     return coolSuccess;
 }
 
+extern "C" coolError_t coolMemcpyAsync(void* dst, const void* src, size_t count,
+                                       coolMemcpyKind kind, coolStream_t stream) {
+    if (dst == nullptr || src == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(memcpyAsync);
+    COOL_API_GUARD(backend->memcpyAsync(dst, src, count, kind, stream));
+    return coolSuccess;
+}
+
+extern "C" coolError_t coolMemsetAsync(void* ptr, int value, size_t count, coolStream_t stream) {
+    if (ptr == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(memsetAsync);
+    COOL_API_GUARD(backend->memsetAsync(ptr, value, count, stream));
+    return coolSuccess;
+}
+
 extern "C" coolError_t coolMemGetInfo(size_t* freeBytes, size_t* totalBytes) {
     if (freeBytes == nullptr || totalBytes == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
@@ -55,6 +74,24 @@ extern "C" coolError_t coolMallocHost(void** ptr, size_t size) {
 extern "C" coolError_t coolFreeHost(void* ptr) {
     COOL_API_ENTER(freeHost);
     COOL_API_GUARD(backend->freeHost(ptr));
+    return coolSuccess;
+}
+
+extern "C" coolError_t coolHostRegister(void* ptr, size_t size, unsigned int flags) {
+    if (ptr == nullptr || size == 0) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(memHostRegister);
+    COOL_API_GUARD(backend->memHostRegister(ptr, size, flags));
+    return coolSuccess;
+}
+
+extern "C" coolError_t coolHostUnregister(void* ptr) {
+    if (ptr == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(memHostUnregister);
+    COOL_API_GUARD(backend->memHostUnregister(ptr));
     return coolSuccess;
 }
 

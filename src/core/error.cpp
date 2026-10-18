@@ -23,6 +23,10 @@ constexpr ErrorEntry kErrors[] = {
     {coolErrorInvalidDevice, "coolErrorInvalidDevice", "invalid device ordinal"},
     {coolErrorInvalidResourceHandle, "coolErrorInvalidResourceHandle", "invalid resource handle"},
     {coolErrorNotReady, "coolErrorNotReady", "device not ready"},
+    {coolErrorHostMemoryAlreadyRegistered, "coolErrorHostMemoryAlreadyRegistered",
+     "host memory already registered"},
+    {coolErrorHostMemoryNotRegistered, "coolErrorHostMemoryNotRegistered",
+     "host memory not registered"},
     {coolErrorNotSupported, "coolErrorNotSupported", "operation not supported"},
     {coolErrorUnknown, "coolErrorUnknown", "unknown error"},
 };
