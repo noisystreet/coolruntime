@@ -110,6 +110,17 @@ and this project uses semantic versioning when releases are created.
 
 ### Fixed
 
+- **驱动错误码映射从 7 项扩到 15 项**：`cuda::resultToError` 此前只认识 7 个 `CUresult`，
+  其余一律收敛成 `coolErrorUnknown`，用户只看到 `"unknown error"`。CUDA 13.4 共定义 105 个
+  驱动错误码，这意味着除分配失败外的多数失败都拿不到有意义的分类。
+  现补齐语义明确等价的：`NOT_INITIALIZED` / `DEINITIALIZED` → `coolErrorNotReady`、
+  `NO_DEVICE` → `coolErrorInvalidDevice`、`INVALID_CONTEXT` / `INVALID_IMAGE` /
+  `INVALID_SOURCE` / `INVALID_PTX` / `FILE_NOT_FOUND` → `coolErrorInvalidValue`。
+  **有意不映射**内核运行期错误（`LAUNCH_FAILED` / `ILLEGAL_ADDRESS` / `LAUNCH_TIMEOUT`
+  等）：把它们报成 `coolErrorInvalidValue` 会把「kernel 跑炸了」误导成「参数传错了」，
+  比报 unknown 更糟。这条决策由 `test_result_map` 的反向断言锁住。
+  实现同时从 switch 改为查表（16 个 case 的 switch 圈复杂度 16，撞上项目 ccn 门限 10；
+  查表后 CCN = 2，加映射只需加一行数据）。
 - **首次并发调用会重复初始化后端（重复 `cuCtxCreate` 泄漏 context）**：懒初始化原先在
   `core/lifecycle.cpp` 用函数局部静态量 + 普通 `bool` 实现，读写都没有同步。多个线程首次
   并发调用任意 `cool*` API 时都会读到「未初始化」，各自执行 `backend->init()`；在 cuda

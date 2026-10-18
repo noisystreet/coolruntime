@@ -2,7 +2,10 @@
 function(cool_add_unit_test name)
     add_executable(${name} unit/${name}.cpp)
     target_link_libraries(${name} PRIVATE coolruntime)
-    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/src)
+    target_include_directories(${name} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/src
+        ${CUDA_INCLUDE_DIR})
 endfunction()
 
 cool_add_unit_test(test_version)
@@ -16,6 +19,7 @@ cool_add_unit_test(test_symbol)
 cool_add_unit_test(test_dim3)
 cool_add_unit_test(test_api_dispatch)
 cool_add_unit_test(test_lifecycle_concurrency)
+cool_add_unit_test(test_result_map)
 
 # 全部测试在唯一的 cuda 后端下运行，需要可用的 NVIDIA 驱动。
 add_test(NAME test_version COMMAND test_version)
@@ -29,3 +33,4 @@ add_test(NAME test_symbol COMMAND test_symbol)
 add_test(NAME test_dim3 COMMAND test_dim3)
 add_test(NAME test_api_dispatch COMMAND test_api_dispatch)
 add_test(NAME test_lifecycle_concurrency COMMAND test_lifecycle_concurrency)
+add_test(NAME test_result_map COMMAND test_result_map)
