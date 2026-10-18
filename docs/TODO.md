@@ -19,7 +19,8 @@
       **原来的边界已消除**：hacc 的表达式翻译当初不支持 `<<` `>>` `&` `|` `^` `~`，
       只能传字面量或已算好的变量，写不出 `atomicOr(&flag, 1u << tid)`。
       该缺口已在 hacc TODO B9 中补完（183/183 通过），现在这类写法可以正常编译。
-      剩下的复合赋值形式（`|=` 等）仍待 hacc 侧跟进，见其 B9-2。
+      复合赋值（`|=` 等）也已在其 B9-2 中补齐（191/191），故 `atomicOr(&f, 1u << tid)`
+      与 `flags |= bit` 都能正常编译。
 - [ ] 评估 `atomicInc` / `atomicDec`：CUDA 语义是 `old >= val ? 0 : old+1` 的环形计数，
       **无法用 `atomicrmw` 表达**，需要 `llvm.nvvm.atomic.load.inc.32` / `.dec.32`（调研结论见 hacc 的 `docs/m4-subset-s1-plan.md` §3.5）。
 
