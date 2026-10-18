@@ -10,6 +10,14 @@ and this project uses semantic versioning when releases are created.
 ### Added
 
 - 共享库产物 `libcoolrt.so`（与静态库同源；经 OBJECT 库复用，不重复编译）。
+- **Debian 打包**：`make package` 生成 `libcoolrt0_<ver>_<arch>.deb`（运行时）与
+  `libcoolrt-dev_<ver>_<arch>.deb`（开发包）。按 Debian 惯例拆包：运行时包只带 soname
+  （`libcoolrt.so.0`）；开发包带头文件、`libcoolrt_static.a`、裸名链接与 `pkg-config`
+  文件 `coolrt.pc`。共享库新增 `VERSION` / `SOVERSION`（对齐 `libcudart.so.12`，
+  soname 为 `libcoolrt.so.0`）。安装布局对齐 CUDA：前缀 **`/usr/local/cool`**，
+  头在 `include/`、库在 `lib64/`（`CPACK_PACKAGING_INSTALL_PREFIX` 必须显式设置，
+  CPack 默认会截成 `/usr`）。`coolrt.pc` 的 `Libs.private` 含 `-lcuda -lstdc++`，
+  保证 C 程序用 `pkg-config --static` 链静态库时能成功（库内部为 C++ 实现）。
 - 初始项目骨架（P0）：CMake 构建、CI、pre-commit。
 - 公开头文件 `cool_version.h` / `cool_types.h` / `cool_runtime_api.h`（C ABI）。
 - 统一入口头 `cool_runtime.h`（聚合 `cool_types.h` / `cool_version.h` / `cool_runtime_api.h`）。

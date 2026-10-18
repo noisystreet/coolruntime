@@ -1,0 +1,13 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: coolrt
+Description: COOLRuntime - CUDA-like runtime API (teaching/reference implementation)
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lcoolrt
+# 静态链接补充依赖：coolrt 内部是 C++ AST/STL 实现，C 程序用 gcc 链接 .a 时需要
+# -lstdc++（与 CUDA 的 libcudart_static.a 需要 -lstdc++ 同理）；-lcuda 是驱动 API。
+Libs.private: -lcuda -lstdc++
+Cflags: -I${includedir}

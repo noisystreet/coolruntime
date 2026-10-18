@@ -70,6 +70,44 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
+### 打包为 Debian 包
+
+```bash
+make package          # 生成 .deb 到 build-package/
+make clean-package    # 清理打包目录
+```
+
+`make package` 用 **Release** 构建（不污染 `build/`）。安装布局对齐 CUDA
+（`/usr/local/cuda/{include,lib64}`），前缀为 **`/usr/local/cool`**：
+
+| 包 | 内容 |
+| --- | --- |
+| `libcoolrt0` | `/usr/local/cool/lib64/libcoolrt.so.0` 与实体 `libcoolrt.so.0.1.0` |
+| `libcoolrt-dev` | `/usr/local/cool/include/cool/*.h`、`lib64/libcoolrt_static.a`、`lib64/libcoolrt.so` 链接、`lib64/pkgconfig/coolrt.pc` |
+
+> 共享库带 soname（`libcoolrt.so.0`），与 CUDA 的 `libcudart.so.12` 同构；裸名 `libcoolrt.so`
+> 只由开发包提供，供 `-lcoolrt` 链接使用。
+
+安装与使用：
+
+```bash
+sudo dpkg -i libcoolrt0_0.1.0_amd64.deb libcoolrt-dev_0.1.0_amd64.deb
+
+export PKG_CONFIG_PATH=/usr/local/cool/lib64/pkgconfig
+pkg-config --libs coolrt                     # -L/usr/local/cool/lib64 -lcoolrt
+gcc app.c $(pkg-config --cflags --libs coolrt) -o app
+
+# 静态链接：需补 -lstdc++（库内部是 C++ 实现，与 libcudart_static.a 同理）
+gcc app.c -I/usr/local/cool/include /usr/local/cool/lib64/libcoolrt_static.a \
+    -lcuda -lstdc++ -o app
+```
+
+运行时需要把 `/usr/local/cool/lib64` 加入动态库搜索路径（`LD_LIBRARY_PATH`，或写进
+`/etc/ld.so.conf.d/coolrt.conf` 后 `ldconfig`）——与 CUDA 的 `/usr/local/cuda/lib64` 同理。
+
+包依赖：运行时包 `Depends: libc6`、`Recommends: nvidia-driver | cuda-drivers`
+（`libcuda.so.1` 由 NVIDIA 驱动提供、不在 Debian 仓库里，因此不写成硬依赖，与 cudart 一致）。
+
 ## 后端
 
 cuda（CUDA Driver API）是唯一后端，无需选择。初始化失败时运行时**不做自动回退**，直接返回错误码。其它配置项见 [.env.example](.env.example)。

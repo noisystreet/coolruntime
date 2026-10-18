@@ -3,6 +3,8 @@
 
 BUILD_DIR ?= build
 BUILD_TYPE ?= Debug
+PACKAGE_BUILD_DIR ?= build-package
+PACKAGE_BUILD_TYPE ?= Release
 CMAKE ?= cmake
 CTEST ?= ctest
 CLANG_FORMAT ?= clang-format
@@ -17,7 +19,7 @@ LIZARD_PATHS := src include tests
 SRC_DIRS := src tests samples include
 FMT_FILES := $(shell find $(SRC_DIRS) -type f \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) 2>/dev/null)
 
-.PHONY: all configure build test fmt fmt-check lint ccn check clean
+.PHONY: all configure build test fmt fmt-check lint ccn check clean package clean-package
 
 all: build
 
@@ -67,3 +69,14 @@ check: fmt-check ccn build test
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+# Debian 打包（Release 构建：Debug 带 ASan/UBSan，不能进 deb）。
+# 产物：$(PACKAGE_BUILD_DIR)/libcoolrt0_*.deb 与 libcoolrt-dev_*.deb
+package:
+	umask 0022 && $(CMAKE) -S . -B $(PACKAGE_BUILD_DIR) \
+		-DCMAKE_BUILD_TYPE=$(PACKAGE_BUILD_TYPE) -DCMAKE_INSTALL_PREFIX=/usr/local/cool
+	umask 0022 && $(CMAKE) --build $(PACKAGE_BUILD_DIR) --target package -j
+	@ls -l $(PACKAGE_BUILD_DIR)/*.deb
+
+clean-package:
+	rm -rf $(PACKAGE_BUILD_DIR)

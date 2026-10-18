@@ -80,7 +80,12 @@ target_link_libraries(coolruntime_objects PRIVATE cool_warnings)
 add_library(coolruntime STATIC $<TARGET_OBJECTS:coolruntime_objects>)
 add_library(coolruntime_shared SHARED $<TARGET_OBJECTS:coolruntime_objects>)
 set_target_properties(coolruntime PROPERTIES OUTPUT_NAME coolrt_static)
-set_target_properties(coolruntime_shared PROPERTIES OUTPUT_NAME coolrt)
+set_target_properties(coolruntime_shared PROPERTIES
+    OUTPUT_NAME coolrt
+    # 共享库带 soname（libcoolrt.so.0），对齐 CUDA 的 libcudart.so.12；
+    # 裸名 libcoolrt.so 只是开发包里的链接，供 -lcoolrt 使用。
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR})
 
 add_library(COOLRuntime::coolruntime ALIAS coolruntime)
 add_library(COOLRuntime::coolruntime_shared ALIAS coolruntime_shared)
@@ -105,3 +110,68 @@ enable_testing()
 
 add_subdirectory(tests)
 add_subdirectory(samples)
+
+# ---------------------------------------------------------------------------
+# Install + Debian packaging
+#
+# 按 Debian 惯例拆成两个包（与 cudart 的分发方式对齐）：
+#   libcoolrt0    —— 运行时：libcoolrt.so.<soname>
+#   libcoolrt-dev —— 开发：头文件 + libcoolrt_static.a + libcoolrt.so 链接 + coolrt.pc
+#
+# 打包入口：`make package`（Release 构建，独立 build-package/ 目录）。
+# 不要用 Debug 目录打包——Debug 编译带 -fsanitize=address,undefined，
+# 打进 deb 会让库在用户机器上强依赖 libasan。
+# ---------------------------------------------------------------------------
+# 布局对齐 CUDA（`/usr/local/cuda/{include,lib64}`）：默认前缀 `/usr/local/cool`，
+# 库目录固定为 lib64（而非 lib 或 lib/<multiarch>）。
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/usr/local/cool" CACHE PATH "Install prefix" FORCE)
+endif()
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_LIBDIR "lib64")
+
+# soname 实体（libcoolrt.so.0）进运行时包；裸名链接（libcoolrt.so）进开发包。
+install(TARGETS coolruntime_shared
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT runtime
+            NAMELINK_COMPONENT devel)
+install(TARGETS coolruntime
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT devel)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT devel)
+
+configure_file(cmake/coolrt.pc.in ${CMAKE_CURRENT_BINARY_DIR}/coolrt.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/coolrt.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig COMPONENT devel)
+
+set(CPACK_GENERATOR "DEB")
+# CPack 的打包前缀默认硬编码为 /usr，必须显式跟随 install 前缀，
+# 否则 /usr/local/cool 会被截成 /usr（deb 内路径与 pkg-config 不一致）。
+set(CPACK_PACKAGING_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+set(CPACK_PACKAGE_NAME "coolrt")
+set(CPACK_PACKAGE_VENDOR "COOLRuntime")
+set(CPACK_PACKAGE_CONTACT "noisystreet <noisystreet@users.noreply.github.com>")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "noisystreet <noisystreet@users.noreply.github.com>")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "COOLRuntime: CUDA-like runtime API (teaching / reference implementation)")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/noisystreet/coolruntime")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+
+set(CPACK_DEB_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENTS_ALL runtime devel)
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+
+# 运行时包：包名遵循 Debian「lib + soname」惯例（libcoolrt0）。
+# libcuda.so.1 由 NVIDIA 驱动提供、不在 Debian 仓库里，故不写进 Depends（与 cudart 一致），
+# 只在开发包里以 Recommends 提示需要驱动。
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_NAME "libcoolrt0")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_SECTION "libs")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_SHLIBDEPS OFF)
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_DEPENDS "libc6 (>= 2.34)")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_RECOMMENDS "nvidia-driver | cuda-drivers")
+
+set(CPACK_DEBIAN_DEVEL_PACKAGE_NAME "libcoolrt-dev")
+set(CPACK_DEBIAN_DEVEL_PACKAGE_SECTION "libdevel")
+set(CPACK_DEBIAN_DEVEL_PACKAGE_SHLIBDEPS OFF)
+set(CPACK_DEBIAN_DEVEL_PACKAGE_DEPENDS "libcoolrt0 (= ${PROJECT_VERSION})")
+
+include(CPack)
