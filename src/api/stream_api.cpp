@@ -23,57 +23,25 @@ extern "C" coolError_t coolStreamCreateWithPriority(coolStream_t* stream, unsign
     if (stream == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->streamCreate == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(streamCreate);
     COOL_API_GUARD(backend->streamCreate(stream, flags, priority));
     return coolSuccess;
 }
 
 extern "C" coolError_t coolStreamDestroy(coolStream_t stream) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->streamDestroy == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(streamDestroy);
     COOL_API_GUARD(backend->streamDestroy(stream));
     return coolSuccess;
 }
 
 extern "C" coolError_t coolStreamSynchronize(coolStream_t stream) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->streamSynchronize == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(streamSynchronize);
     COOL_API_GUARD(backend->streamSynchronize(stream));
     return coolSuccess;
 }
 
 extern "C" coolError_t coolStreamQuery(coolStream_t stream) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->streamQuery == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(streamQuery);
     COOL_API_GUARD(backend->streamQuery(stream));
     return coolSuccess;
 }
@@ -82,15 +50,7 @@ extern "C" coolError_t coolStreamWaitEvent(coolStream_t stream, coolEvent_t even
     if (event == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->streamWaitEvent == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(streamWaitEvent);
     COOL_API_GUARD(backend->streamWaitEvent(stream, event));
     return coolSuccess;
 }

@@ -18,29 +18,13 @@ extern "C" coolError_t coolEventCreateWithFlags(coolEvent_t* event, unsigned int
     if (event == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->eventCreate == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(eventCreate);
     COOL_API_GUARD(backend->eventCreate(event, flags));
     return coolSuccess;
 }
 
 extern "C" coolError_t coolEventDestroy(coolEvent_t event) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->eventDestroy == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(eventDestroy);
     COOL_API_GUARD(backend->eventDestroy(event));
     return coolSuccess;
 }
@@ -49,43 +33,19 @@ extern "C" coolError_t coolEventRecord(coolEvent_t event, coolStream_t stream) {
     if (event == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->eventRecord == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(eventRecord);
     COOL_API_GUARD(backend->eventRecord(event, stream));
     return coolSuccess;
 }
 
 extern "C" coolError_t coolEventSynchronize(coolEvent_t event) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->eventSynchronize == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(eventSynchronize);
     COOL_API_GUARD(backend->eventSynchronize(event));
     return coolSuccess;
 }
 
 extern "C" coolError_t coolEventQuery(coolEvent_t event) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->eventQuery == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(eventQuery);
     COOL_API_GUARD(backend->eventQuery(event));
     return coolSuccess;
 }
@@ -94,15 +54,7 @@ extern "C" coolError_t coolEventElapsedTime(float* ms, coolEvent_t start, coolEv
     if (ms == nullptr || start == nullptr || end == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->eventElapsedTime == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(eventElapsedTime);
     COOL_API_GUARD(backend->eventElapsedTime(ms, start, end));
     return coolSuccess;
 }

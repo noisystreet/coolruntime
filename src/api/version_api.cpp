@@ -18,12 +18,7 @@ extern "C" coolError_t coolDriverGetVersion(int* driverVersion) {
     if (driverVersion == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->driverGetVersion == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
+    COOL_API_ENTER(driverGetVersion);
     COOL_API_GUARD(backend->driverGetVersion(driverVersion));
     return coolSuccess;
 }

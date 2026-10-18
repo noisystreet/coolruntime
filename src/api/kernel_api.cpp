@@ -15,15 +15,7 @@ extern "C" coolError_t coolModuleLoadData(coolModule_t* module, const void* imag
     if (module == nullptr || image == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->moduleLoadData == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(moduleLoadData);
     COOL_API_GUARD(backend->moduleLoadData(module, image));
     return coolSuccess;
 }
@@ -32,15 +24,7 @@ extern "C" coolError_t coolModuleLoadFromFile(coolModule_t* module, const char* 
     if (module == nullptr || path == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->moduleLoadFromFile == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(moduleLoadFromFile);
     COOL_API_GUARD(backend->moduleLoadFromFile(module, path));
     return coolSuccess;
 }
@@ -50,15 +34,7 @@ extern "C" coolError_t coolModuleGetFunction(coolKernel_t* kernel, coolModule_t 
     if (kernel == nullptr || module == nullptr || name == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->moduleGetFunction == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(moduleGetFunction);
     COOL_API_GUARD(backend->moduleGetFunction(kernel, module, name));
     return coolSuccess;
 }
@@ -67,15 +43,7 @@ extern "C" coolError_t coolModuleUnload(coolModule_t module) {
     if (module == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->moduleUnload == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(moduleUnload);
     COOL_API_GUARD(backend->moduleUnload(module));
     return coolSuccess;
 }
@@ -85,15 +53,7 @@ extern "C" coolError_t coolLaunchKernel(coolKernel_t kernel, dim3 grid, dim3 blo
     if (kernel == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->launchKernel == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(launchKernel);
     COOL_API_GUARD(backend->launchKernel(kernel, grid, block, args, sharedMem, stream));
     return coolSuccess;
 }
@@ -105,15 +65,7 @@ extern "C" coolError_t coolOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlo
     if (numBlocks == nullptr || kernel == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->occupancyMaxActiveBlocksPerMultiprocessor == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(occupancyMaxActiveBlocksPerMultiprocessor);
     COOL_API_GUARD(backend->occupancyMaxActiveBlocksPerMultiprocessor(numBlocks, kernel, blockSize,
                                                                       dynamicSMemSize));
     return coolSuccess;
@@ -126,15 +78,7 @@ extern "C" coolError_t coolOccupancyMaxPotentialBlockSize(int* minGridSize, int*
     if (minGridSize == nullptr || blockSize == nullptr || kernel == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->occupancyMaxPotentialBlockSize == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(occupancyMaxPotentialBlockSize);
     COOL_API_GUARD(backend->occupancyMaxPotentialBlockSize(minGridSize, blockSize, kernel,
                                                            dynamicSMemSize, blockSizeLimit));
     return coolSuccess;

@@ -15,6 +15,7 @@
 
 #include "backend/cool_backend.h"
 #include "cool/cool_types.h"
+#include "core/error.hpp"
 
 namespace cool {
 
@@ -36,5 +37,26 @@ const coolBackend* activeBackend();
 void installBackendForTesting(const coolBackend* backend);
 
 }  // namespace cool
+
+/*
+ * 取「已初始化且支持指定能力」的后端——A 层每个转发函数的公共前置步骤。
+ *
+ * 展开后：失败时已写入 TLS 并直接 return；成功时在当前作用域声明
+ * `const coolBackend* backend`，且 `backend->member` 保证非空。这样「后端未就绪」
+ * 与「能力未实现」各返回各的错误码（后者按 cool_backend.h 的 BAL 契约）。
+ *
+ * 用法：
+ *   COOL_API_ENTER(malloc);
+ *   COOL_API_GUARD(backend->malloc(ptr, size));
+ */
+#define COOL_API_ENTER(member)                            \
+    COOL_API_GUARD(::cool::ensureInitialized());          \
+    const coolBackend* backend = ::cool::activeBackend(); \
+    if (backend == nullptr) {                             \
+        COOL_API_RETURN(coolErrorNotReady);               \
+    }                                                     \
+    if ((backend)->member == nullptr) {                   \
+        COOL_API_RETURN(coolErrorNotSupported);           \
+    }
 
 #endif /* COOL_CORE_LIFECYCLE_HPP */

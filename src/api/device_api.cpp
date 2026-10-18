@@ -15,15 +15,7 @@ extern "C" coolError_t coolGetDeviceCount(int* count) {
     if (count == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->getDeviceCount == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(getDeviceCount);
     COOL_API_GUARD(backend->getDeviceCount(count));
     return coolSuccess;
 }
@@ -32,12 +24,7 @@ extern "C" coolError_t coolSetDevice(int device) {
     if (device < 0) {
         COOL_API_RETURN(coolErrorInvalidDevice);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->getDeviceCount == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
+    COOL_API_ENTER(getDeviceCount);
 
     int count = 0;
     COOL_API_GUARD(backend->getDeviceCount(&count));
@@ -61,37 +48,19 @@ extern "C" coolError_t coolGetDeviceProperties(coolDeviceProp* prop, int device)
     if (prop == nullptr) {
         COOL_API_RETURN(coolErrorInvalidValue);
     }
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
-    if (backend->getDeviceProperties == nullptr) {
-        COOL_API_RETURN(coolErrorNotSupported);
-    }
+    COOL_API_ENTER(getDeviceProperties);
     COOL_API_GUARD(backend->getDeviceProperties(device, prop));
     return coolSuccess;
 }
 
 extern "C" coolError_t coolDeviceSynchronize(void) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->deviceSynchronize == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
+    COOL_API_ENTER(deviceSynchronize);
     COOL_API_GUARD(backend->deviceSynchronize());
     return coolSuccess;
 }
 
 extern "C" coolError_t coolDeviceReset(void) {
-    COOL_API_GUARD(cool::ensureInitialized());
-
-    const coolBackend* backend = cool::activeBackend();
-    if (backend == nullptr || backend->deviceReset == nullptr) {
-        COOL_API_RETURN(coolErrorNotReady);
-    }
+    COOL_API_ENTER(deviceReset);
     COOL_API_GUARD(backend->deviceReset());
     return coolSuccess;
 }

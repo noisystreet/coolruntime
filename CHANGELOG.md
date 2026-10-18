@@ -78,6 +78,12 @@ and this project uses semantic versioning when releases are created.
 
 ### Changed
 
+- **A 层转发样板收敛为一个宏**：44 个 `extern "C"` 中 35 个都在重复同一段「懒初始化 →
+  取后端 → 检查空指针 → 检查能力位」的 6 行代码（约 210 行）。新增
+  `COOL_API_ENTER(member)`（`core/lifecycle.hpp`），每个转发函数降到 2 行。
+  `src/api/` 从 666 行降到 410 行。
+  这不仅是行数问题：35 份手写检查里漏写一处就是静默的空指针解引用，收敛后「检查能力位」
+  只有一个实现，新增 API 也不会忘。
 - **库产物重命名**，对齐 CUDA（`libcudart_static.a` / `libcudart.so`）：
   `libcoolruntime.a` → **`libcoolrt_static.a`**（静态带 `_static` 后缀），并新增 **`libcoolrt.so`**。
   CMake target 名仍为 `coolruntime`（共享库为 `coolruntime_shared`，别名

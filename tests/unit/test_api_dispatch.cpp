@@ -112,6 +112,10 @@ int main() {
     COOL_CHECK_EQ(coolFreeHost(p), coolErrorNotSupported);
     coolStream_t stream = nullptr;
     COOL_CHECK_EQ(coolStreamCreate(&stream), coolErrorNotSupported);
+    /* 这两处原本把「未实现」返回成 NotReady，由统一前置步骤修正。 */
+    COOL_CHECK_EQ(coolDeviceSynchronize(), coolErrorNotSupported);
+    int driverVersion = 0;
+    COOL_CHECK_EQ(coolDriverGetVersion(&driverVersion), coolErrorNotSupported);
 
     /* 6) 后端错误码透传到返回值与 TLS。 */
     g_fake.mallocResult = coolErrorOutOfMemory;
