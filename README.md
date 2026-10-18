@@ -48,6 +48,7 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 | 流管理 | `coolStreamCreate` / `coolStreamCreateWithFlags` / `coolStreamCreateWithPriority` / `coolStreamDestroy` / `coolStreamSynchronize` / `coolStreamQuery` / `coolStreamWaitEvent` |
 | 事件管理 | `coolEventCreate` / `coolEventCreateWithFlags` / `coolEventDestroy` / `coolEventRecord` / `coolEventSynchronize` / `coolEventQuery` / `coolEventElapsedTime` |
 | 模块与内核 | `coolModuleLoadData` / `coolModuleLoadFromFile` / `coolModuleGetFunction` / `coolModuleUnload` / `coolLaunchKernel` / `coolOccupancyMaxActiveBlocksPerMultiprocessor` / `coolOccupancyMaxPotentialBlockSize` |
+| 设备符号 | `coolMemcpyToSymbol` / `coolMemcpyFromSymbol` / `coolGetSymbolAddress` / `coolGetSymbolSize`（含 `cudaMemcpy*Symbol` 兼容别名） |
 
 内存分配的设备/主机指针、流/事件句柄、以及模块/函数句柄，均由 cuda 后端内的注册表跟踪，用于校验释放/销毁并识别重复操作（宿主并发原语只允许出现在后端，见 [ADR 0002](docs/adr/0002-memory-metadata-registry-placement.md)、[ADR 0003](docs/adr/0003-stream-event-handle-registry-placement.md) 与 [ADR 0004](docs/adr/0004-kernel-module-api-placement.md)）。
 

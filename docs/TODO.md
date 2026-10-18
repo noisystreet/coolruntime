@@ -1,0 +1,91 @@
+# TODO
+
+待办与未决项。按主题分组，`[ ]` 未做 / `[x]` 已完成 / `[~]` 进行中。
+
+跨项目（编译器等）的配对项会标注对端仓库，coolrt 侧只负责声明与运行时。
+
+---
+
+## A. 设备端内建（`include/cool/device_builtins.h`）
+
+> 现状：只有 `__syncthreads`、`__threadfence{,_block,_system}`、6 种原子。
+> 内建声明本身是纯头文件改动（不改行为），但每项都需要对端 `hacc` 的 `coolicc` 同步加映射，
+> 因此按「声明先行、映射跟上」推进。
+
+### A.1 原子补完 —— 性价比最高
+
+- [ ] `atomicAnd` / `atomicOr` / `atomicXor`（`int*` + `unsigned int*` 重载）。
+      hacc 已能把它们映射到 LLVM `atomicrmw`，**只差声明**。
+- [ ] 评估 `atomicInc` / `atomicDec`：CUDA 语义是 `old >= val ? 0 : old+1` 的环形计数，
+      **无法用 `atomicrmw` 表达**，需要 `llvm.nvvm.atomic.load.inc.32` / `.dec.32`（调研结论见 hacc 的 `docs/m4-subset-s1-plan.md` §3.5）。
+
+### A.2 数学函数 —— 分两档，不能一锅端
+
+**第一批 · 零依赖**（`llvm.*` 标准 intrinsic，NVPTX 直接生成 PTX 指令）
+
+- [ ] `sqrtf` / `rsqrtf` / `fabsf` / `fmaf`
+- [ ] `floorf` / `ceilf` / `truncf` / `roundf`
+- [ ] `fminf` / `fmaxf`
+
+**第二批 · 需要决策**（`llvm.sin.f32` 等在 NVPTX **不会**直接落到 PTX，后端会生成对
+libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
+
+- [ ] `sinf` / `cosf` / `expf` / `logf` / `powf` —— 两种方案：
+      接 libdevice（精度 IEEE，成本高），或用近似指令（`sin.approx.f32` 等，精度约 2⁻²¹）。
+- [ ] 若走近似：**必须用 CUDA 自己的快速内建命名**（`__sinf` / `__expf`），
+      不得让 `sinf` 悄悄变成近似 —— 否则用户得到静默错误结果。
+
+### A.3 warp 原语
+
+- [ ] 先 spike：最小 `.cu`（仅 `__shfl_down_sync`）跑通 EDG IL → LLVM → PTX，确认 intrinsic
+      名与重载形态（`i32`/`f32`/`b32` 变体），再批量铺。
+- [ ] `__shfl_sync`（idx / up / down / xor）、`__ballot_sync`、`__any_sync`、`__all_sync`
+- [ ] `__syncwarp`、`__activemask`
+
+### A.4 其他内建
+
+- [ ] `__ldg`（只读数据缓存加载）
+- [ ] 位操作：`__popc` / `__clz` / `__ffs` / `__brev`
+- [ ] `clock()` / `clock64()`（内核内计时）
+- [ ] `make_float3` 等向量构造函数
+- [ ] 向量类型覆盖：`char4` / `uchar4` / `short2` / `ushort2` / `longlong2`
+
+---
+
+## B. 主机端
+
+### B.1 异步拷贝 —— 流才真正有用
+
+> 现状：有流、有事件、有 `coolMallocHost`，但**所有拷贝都是同步的**，写不出拷贝/计算重叠。
+
+- [ ] `coolMemcpyAsync(dst, src, count, kind, stream)`
+- [ ] `coolMemsetAsync(ptr, value, count, stream)`
+- [ ] `coolHostRegister` / `coolHostUnregister`（页锁定任意主机内存）——
+      `cuMemcpyAsync` 对 pageable 内存会退化或报错，没有它异步没有意义。
+
+### B.2 查询类与元数据
+
+- [ ] `coolStreamGetPriority` / `coolStreamGetFlags`
+- [ ] `coolDeviceGetStreamPriorityRange`（没有它，`coolStreamCreateWithPriority` 的参数靠猜）
+- [ ] `coolFuncGetAttributes`（对端 hacc 的 S2 需要内核元数据）
+
+---
+
+## C. 文档与一致性
+
+- [x] 默认流语义定稿 → [ADR 0005](adr/0005-default-stream-semantics.md)
+      （`NULL` = legacy 默认流，不引入 `COOL_STRICT_DEFAULT_STREAM`）
+- [x] `README` 「已实现」表补 symbol 四件套
+- [ ] 一致性对照测试框架形态（独立 target / 编译期双实现）—— ARCHITECTURE 的 Open Decision，Due P4
+
+---
+
+## D. 明确不做（Non-Goals）
+
+沿用 `docs/ARCHITECTURE.md` §Non-Goals 与实施方案 P5+ 的判断：
+
+- 分离编译 / 跨 TU 设备链接、动态并行
+- 统一内存（`__managed__`）、高级统一寻址
+- 多 GPU / peer / Graph / texture
+- per-thread 默认流（见 [ADR 0005](adr/0005-default-stream-semantics.md)）
+- 设备端 C++ 异常 / RTTI / 协程 / 虚函数 / 函数指针

@@ -9,6 +9,14 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **`docs/TODO.md`**：把设备内建（原子补完 / 数学函数 / warp 原语 / 位操作 / `__ldg` 等）、
+  主机异步拷贝与查询类 API 的待办，连同 Non-Goals 集中到一处。
+  此前这些只知道「缺什么」，散落在 `ARCHITECTURE.md` 的 3 行 Open Decisions 里，没有可跟踪的清单。
+  内容基于对两个仓的实测盘点：例如数学函数区分「零依赖」与「需 libdevice」两档，
+  避免把近似指令误当精确语义。
+- `README` 「已实现」表补上**设备符号四件套**（`coolMemcpyToSymbol` / `coolMemcpyFromSymbol` /
+  `coolGetSymbolAddress` / `coolGetSymbolSize`）—— 代码早已实现并有 `test_symbol` 覆盖，表格漏列。
+
 - **R 层转发逻辑可在无 GPU 下测试**：新增 `cool::installBackendForTesting()`（内部头
   `core/lifecycle.hpp`，测试专用），可注入假后端替换真实 cuda 后端。这一点能成立是因为
   BAL 用函数指针结构体表达能力 —— 转发逻辑本就与后端实现无关。
