@@ -5,8 +5,10 @@
  * R 层错误状态（内部头）。
  *
  * last error 采用线程局部存储（TLS），语义与 cudart 一致：
- *   - 每次 API 调用成功/失败都会刷新 TLS；
- *   - coolGetLastError 读取并清空；coolPeekAtLastError 只读取。
+ *   - 每次 API 调用都刷新 TLS：转发类 API 进入时先置 coolSuccess（成功时就
+ *     是这个值），失败则写入具体错误码；参数校验失败同样写入；
+ *   - coolGetLastError 读取并清空；coolPeekAtLastError 只读取；
+ *   - 纯查询接口（coolGetErrorName / coolGetErrorString）不改变 TLS。
  */
 #ifndef COOL_CORE_ERROR_HPP
 #define COOL_CORE_ERROR_HPP

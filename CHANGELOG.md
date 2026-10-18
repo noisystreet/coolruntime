@@ -78,6 +78,14 @@ and this project uses semantic versioning when releases are created.
 
 ### Changed
 
+- **`lastError` 现在在成功调用后也刷新（对齐 cudart）**：`error.hpp` 一直声明「每次 API
+  调用成功/失败都会刷新 TLS」，但实现只在失败路径写入，成功路径直接返回 `coolSuccess`。
+  于是「失败 → 紧接着成功 → `coolPeekAtLastError()`」仍返回**上一次**的错误码，容易把
+  调用方带偏。现由 `COOL_API_ENTER` 进入时先把 TLS 置为 `coolSuccess`（成功时就是这个
+  值），失败再覆盖具体错误码。
+  **可观测行为变更**：成功调用后 `coolPeekAtLastError()` 返回 `coolSuccess`，此前返回上一次
+  的错误。`coolGetLastError` 的「读取即清空」语义不变；`coolGetErrorName/String` 这类纯
+  查询接口仍不改变 TLS。由 `test_api_dispatch` 第 7 组断言锁住。
 - **生命周期状态机下移到后端层**：新增 `src/backend/bootstrap.{hpp,cpp}`，负责选定后端、
   线程安全的一次性初始化与进程退出时的 finalize。`core/lifecycle.cpp` 从 84 行降到 30 行，
   只剩对 bootstrap 的转发，R 层保持无状态（符合 AGENTS.md「宿主并发原语只允许出现在

@@ -124,5 +124,12 @@ int main() {
     COOL_CHECK_EQ(coolGetLastError(), coolErrorOutOfMemory);
     COOL_CHECK_EQ(coolGetLastError(), coolSuccess); /* 读取即清空 */
 
+    /* 7) 成功调用同样刷新 TLS（对齐 cudart：last error 反映本次调用结果）。 */
+    COOL_CHECK_EQ(coolMalloc(nullptr, 8), coolErrorInvalidValue);
+    COOL_CHECK_EQ(coolPeekAtLastError(), coolErrorInvalidValue);
+    g_fake.mallocResult = coolSuccess;
+    COOL_CHECK_EQ(coolMalloc(&p, 32), coolSuccess);
+    COOL_CHECK_EQ(coolPeekAtLastError(), coolSuccess); /* 上次的 InvalidValue 已被覆盖 */
+
     return cooltest::summary("test_api_dispatch");
 }
