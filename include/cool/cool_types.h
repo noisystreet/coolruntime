@@ -84,7 +84,8 @@ typedef struct coolDeviceProp {
     int warpSize; /* cuda 后端：真实 warp 大小 */
 } coolDeviceProp;
 
-/* 不透明句柄：NULL 表示默认流。 */
+/* 不透明句柄：NULL 表示默认流（legacy 语义：与所有 blocking 流隐式同步；
+ * 不支持 per-thread 默认流，见 docs/adr/0005-default-stream-semantics.md）。 */
 typedef struct coolStream_st* coolStream_t;
 typedef struct coolEvent_st* coolEvent_t;
 

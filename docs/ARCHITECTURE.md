@@ -55,7 +55,9 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 
 - 设备：`int` 逻辑设备 id；阶段一暴露逻辑设备 0，保留多设备接口。
 - 上下文：每设备一个隐式主上下文，运行时自动创建；cuda 后端内部即 `CUcontext`。
-- 流：`coolStream_t`（不透明指针），`NULL` = 默认流。
+- 流：`coolStream_t`（不透明指针），`NULL` = **legacy 默认流**
+  （见 [ADR 0005](adr/0005-default-stream-semantics.md)）：与所有 blocking 流隐式同步，
+  不支持 per-thread 默认流；`coolStreamDestroy(NULL)` 返回 `coolErrorInvalidValue`。
 - 事件：`coolEvent_t`（不透明指针）。
 - 内存块：`void*` 设备指针，分配元数据由后端注册表记录（见 [ADR 0002](adr/0002-memory-metadata-registry-placement.md)）。
 - 内核：`coolKernel_t`（不透明指针）；cuda 后端内部即 `CUfunction`。
@@ -81,4 +83,3 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 | Decision | Options | Owner | Due |
 |----------|---------|-------|-----|
 | 一致性对照测试框架形态 | 独立 target / 编译期双实现 | maintainers | P4 |
-| `COOL_STRICT_DEFAULT_STREAM` 严格模式是否默认开启 | 默认关 / 默认开 | maintainers | P2 |

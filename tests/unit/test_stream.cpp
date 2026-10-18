@@ -63,5 +63,12 @@ int main() {
     COOL_CHECK_EQ(coolStreamWaitEvent(s, nullptr), coolErrorInvalidValue);
     COOL_CHECK_EQ(coolStreamDestroy(s), coolSuccess);
 
+    /* 默认流（NULL）上记录事件：ADR 0005 约定的 legacy 默认流语义。 */
+    coolEvent_t defEvent = nullptr;
+    COOL_CHECK_EQ(coolEventCreate(&defEvent), coolSuccess);
+    COOL_CHECK_EQ(coolEventRecord(defEvent, nullptr), coolSuccess);
+    COOL_CHECK_EQ(coolEventSynchronize(defEvent), coolSuccess);
+    COOL_CHECK_EQ(coolEventDestroy(defEvent), coolSuccess);
+
     return cooltest::summary("test_stream");
 }

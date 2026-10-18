@@ -78,6 +78,14 @@ and this project uses semantic versioning when releases are created.
 
 ### Changed
 
+- **默认流语义明确为 CUDA legacy 默认流**（[ADR 0005](docs/adr/0005-default-stream-semantics.md)）：
+  `coolStream_t NULL` 与所有 blocking 流隐式同步，不支持 per-thread 默认流，也不为其预留开关。
+  `ARCHITECTURE.md` 的 Open Decision「`COOL_STRICT_DEFAULT_STREAM` 严格模式是否默认开启」一并关闭 ——
+  该项自 P2 起只有一行表格、代码中从未存在该开关，本次决定不引入（理由见 ADR，含两种可能解读的否定论证）。
+  **无行为变更**：cuda 后端一直把 `NULL` 直接交给 `cuStream*` 系调用（`CUstream 0` 即 legacy 默认流），
+  本条目只是把既有事实固化为契约，并让 hacc 的 `<<<>>>`（`stream = NULL`）语义有据可依。
+  `cool_types.h` 的句柄注释同步补明语义。
+
 - **`cuda_backend.cpp` 按职责拆分**（994 行 → 4 个模块）：原文件同时装着结果码映射、两个
   资源注册表、上下文生命周期和 40 个 BAL 适配函数。现拆为：
   `cuda_result_map`（`CUresult` → `coolError_t`）、`cuda_registry`（内存与句柄登记）、
