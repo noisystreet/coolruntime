@@ -9,6 +9,22 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **wmma fragment 与内建声明（MMA / hacc C12 的 A1）**：`device_builtins.h` 新增 4 个
+  fragment 类型（`cool_wmma_frag_a` / `_b` / `_c` / `_d`，各 32 字节、对齐 4）与 5 条内建
+  声明（`cool_wmma_load_a_row` / `_b_col` / `_c_row`、`cool_wmma_mma`、`cool_wmma_store_d_row`），
+  全部是**出参 ABI**（fragment 指针由实现写入/读取，不返回值）。
+  MVP 不需要 `half`：A/B 用 `unsigned int[8]` 占位、C/D 用 `float[8]`，正确性由矩阵数据
+  布局保证 —— 用户自己把 f16 数据填进缓冲，与 fragment 的内部视图无关。
+  **为什么不是 `unsigned short[16]`**：同样 32 字节，但对齐只有 2，而 hacc 侧 intrinsic
+  聚合值（`{<2 x half> × 8}` / `{float × 8}`）对齐是 4；hacc 目前不读类型的 `aligned`
+  属性（会丢弃），align 2 的槽位存 align 4 的值属未定义行为，且只在真机数值上暴露。
+  四个**互不相同**的结构体名是刻意的 —— 出参 ABI 下 hacc 不校验 fragment 类型，
+  「A/B/C/D 传反」只能靠 C 编译器抓。
+  头注释写死了三条红线（hacc 侧都不设防）：**整 warp 一致执行**（包进 `if (tid < k)`
+  不报错但结果错）、**load/store 的缓冲 32 字节对齐**、**A/B/C/D 顺序固定 D = A×B + C**。
+  新增 `tests/unit/test_wmma_frag.cpp`（14 项检查：32 字节 / 对齐 4 / 可平凡复制 /
+  四个类型互不相同）。`make check` **15/15**。
+
 - **查询类与元数据 API（P5.5）**：补齐 `coolStreamGetPriority` / `coolStreamGetFlags` /
   `coolDeviceGetStreamPriorityRange` / `coolFuncGetAttributes`，均为薄透传
   （`cuStreamGetPriority` / `cuStreamGetFlags` / `cuCtxGetStreamPriorityRange` /

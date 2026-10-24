@@ -122,6 +122,43 @@ typedef struct __attribute__((aligned(16))) double4 {
 } double4;
 
 /* ------------------------------------------------------------------ */
+/* MMA（Tensor Core）wmma fragment（C12；ADR 0008 待批）                */
+/* ------------------------------------------------------------------ */
+/*
+ * m16n16k16 的 fragment：A/B 各 8 个 `<2 x half>`，C/D 各 8 个 `float`，一律 **32 字节**。
+ *
+ * 为什么用整型/浮点数组占位，而不是 16 位浮点：
+ *   - hacc 的 `map_float_type` 尚未覆盖 16 位浮点 kind（`fk_float16` / `fk_fp16`），
+ *     用户可见的 `half` 类型目前编不过；
+ *   - MVP 的正确性由**矩阵数据布局**保证（f16 数据由用户自己填进缓冲），
+ *     与 fragment 的内部视图无关。
+ *
+ * 为什么是 `unsigned int` / `float` 而不是 `unsigned short`：
+ *   两者都是 32 字节，但 `unsigned short[16]` 的对齐只有 2，而 hacc 生成的
+ *   intrinsic 聚合值（`{<2 x half> × 8}` / `{float × 8}`）对齐是 4。hacc 目前不读
+ *   类型的 aligned 属性（会丢弃），局部变量的对齐取自字段类型 —— align 2 的槽位
+ *   存 align 4 的值属未定义行为。用 u32 / float 占位让两侧对齐一致，不依赖属性传递。
+ *
+ * 四个**互不相同**的结构体名是刻意的：hacc 在出参 ABI 下不校验 fragment 类型
+ * （内部一律按 32 字节处理），把「A/B/C/D 传反」的检查挪回 C 编译器。
+ */
+typedef struct cool_wmma_frag_a {
+    unsigned int m[8];
+} cool_wmma_frag_a; /* 32B，对齐 4：A 矩阵（row major） */
+
+typedef struct cool_wmma_frag_b {
+    unsigned int m[8];
+} cool_wmma_frag_b; /* 32B，对齐 4：B 矩阵（col major） */
+
+typedef struct cool_wmma_frag_c {
+    float m[8];
+} cool_wmma_frag_c; /* 32B，对齐 4：C 累加器 */
+
+typedef struct cool_wmma_frag_d {
+    float m[8];
+} cool_wmma_frag_d; /* 32B，对齐 4：D 结果累加器 */
+
+/* ------------------------------------------------------------------ */
 /* 设备端内建变量与函数（仅设备编译可见）                               */
 /* ------------------------------------------------------------------ */
 #ifdef __COOLCC__
@@ -178,6 +215,30 @@ unsigned int atomicOr(unsigned int* address, unsigned int val);
 
 int atomicXor(int* address, int val);
 unsigned int atomicXor(unsigned int* address, unsigned int val);
+
+/* wmma（MMA / Tensor Core，C12）：由 hacc 映射到 llvm.nvvm.wmma.* intrinsic。
+ *
+ * ABI 是**出参**（fragment 指针由实现写入/读取），不是值返回：
+ *   - 用户代码不需要对 fragment 做元素级运算，值语义没有收益；
+ *   - 值返回要求 hacc 生成「多返回值 struct intrinsic 的 SSA 管道」，
+ *     与内建映射不支持带参的缺口叠在一起。
+ * 将来要支持元素级运算（手工缩放累加器等）时再补值语义通道。
+ *
+ * **三条红线（hacc 侧全部不设防，只能靠用户遵守）**：
+ *   1. warp 级语义：32 个 lane 必须一致执行到调用点。放进 `if (tid < k)` 之类的
+ *      分支里**不报错但结果错**（与 KI-1 同类：能编译、看着跑通、数值不对）。
+ *   2. load/store 的 `src` / `dst` 必须 **32 字节对齐**（PTX 用 `.aligned` 变体，
+ *      hacc 不读对齐属性）。`coolMalloc` 实测 256B 对齐，缓冲直接用即可；
+ *      需要偏移时先拷到对齐缓冲，不要把 `ptr + i` 传进来。
+ *   3. A/B/C/D 传反**不报错**：hacc 内部一律按 32 字节处理，编译期能抓的只有
+ *      C 层的四个不同结构体名。顺序固定为 D = A×B + C。
+ */
+void cool_wmma_load_a_row(cool_wmma_frag_a* frag, const void* src);
+void cool_wmma_load_b_col(cool_wmma_frag_b* frag, const void* src);
+void cool_wmma_load_c_row(cool_wmma_frag_c* frag, const void* src);
+void cool_wmma_mma(cool_wmma_frag_d* d, const cool_wmma_frag_a* a, const cool_wmma_frag_b* b,
+                   const cool_wmma_frag_c* c);
+void cool_wmma_store_d_row(void* dst, const cool_wmma_frag_d* d);
 
 #endif /* __COOLCC__ */
 
