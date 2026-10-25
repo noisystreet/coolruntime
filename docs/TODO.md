@@ -86,6 +86,13 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
       由后端循环调用 `cuFuncGetAttribute` 填充。
       与 cudart 的差异：不含 `binaryVersion` / `cacheModeCA` / cluster 字段，字段只增不改。
 
+### B.3 接口补齐规划（P6）—— 已立项，未开工
+
+- [ ] 按主题分档补齐缺失接口，计划见 **[runtime-api-plan.md](runtime-api-plan.md)**。
+      优先级：纯主机侧（设备属性 / 错误码 → 2D·pitch 内存族 → JIT 选项）先做，
+      设备侧（warp 原语 / 位操作 / printf·assert / 动态共享内存）一律带 spike 前置、跨仓成对推进。
+      **三个开工前置 spike**：warp intrinsic 形态、`extern __shared__` 的 IL 形态、可变参调用与聚合返回值。
+
 ---
 
 ## C. 文档与一致性

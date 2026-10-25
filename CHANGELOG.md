@@ -9,6 +9,13 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **接口补齐规划文档（P6）**：[docs/runtime-api-plan.md](docs/runtime-api-plan.md) 立项。
+  清点现状（主机 API **52 个** + 设备内建清单），按「纯主机侧优先 / 声明先行 ≠ 能力可用 /
+  可诊断性 > 功能数量」三原则分档（R1 设备属性、R2 错误码、R3 2D·pitch 内存族、R4 warp 原语、
+  R5 位操作与向量、R6 printf·assert、R7 共享内存配套、R8 流补遗、R9 JIT 选项），
+  并列出三个开工前置 spike（warp intrinsic 形态 / `extern __shared__` 的 IL 形态 /
+  可变参调用与聚合返回值）。**只是规划，未改动任何头文件与实现**。
+
 - **数学内建声明（hacc S2 T3）**：`device_builtins.h` 的 `__COOLCC__` 段新增 16 个 f32 内建
   声明，由 coolicc 按名字映射到单条 PTX 指令：`sqrtf`、`fabsf`、`fminf`、`fmaxf`、`floorf`、
   `ceilf`、`truncf`、`rsqrtf`、`__fmaf_rn`、`__fsqrt_rn`、`__frcp_rn`、`__fdividef`、
