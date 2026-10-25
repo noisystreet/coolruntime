@@ -8,7 +8,8 @@
 
 ## A. 设备端内建（`include/cool/device_builtins.h`）
 
-> 现状：只有 `__syncthreads`、`__threadfence{,_block,_system}`、6 种原子。
+> 现状：`__syncthreads`、`__threadfence{,_block,_system}`、6 种原子、5 条 wmma 内建（出参 ABI）、
+> 16 个 f32 数学内建、`__launch_bounds__` 空宏。warp 原语 / `__ldg` / 位操作 / `clock` 尚未提供。
 > 内建声明本身是纯头文件改动（不改行为），但每项都需要对端 `hacc` 的 `coolicc` 同步加映射，
 > 因此按「声明先行、映射跟上」推进。
 
@@ -26,19 +27,23 @@
 
 ### A.2 数学函数 —— 分两档，不能一锅端
 
-**第一批 · 零依赖**（`llvm.*` 标准 intrinsic，NVPTX 直接生成 PTX 指令）
+**第一批 · 零依赖**（`llvm.*` 标准 intrinsic，NVPTX 直接生成 PTX 指令）—— **已随 hacc S2 T3 落地**
 
-- [ ] `sqrtf` / `rsqrtf` / `fabsf` / `fmaf`
-- [ ] `floorf` / `ceilf` / `truncf` / `roundf`
-- [ ] `fminf` / `fmaxf`
+- [x] `sqrtf` / `rsqrtf` / `fabsf` / `fminf` / `fmaxf` / `floorf` / `ceilf` / `truncf`
+      —— 声明在本头 `__COOLCC__` 段，由 hacc `try_translate_math_call` 映射到单条 PTX 指令
+      （`sqrt.rn` / `rsqrt.approx` / `abs` / `min` / `max` / `cvt.rmi·rpi·rzi`）。
+- [x] `fmaf` 的精确档 —— 按 CUDA 命名收录为 **`__fmaf_rn`**（`fma.rn.f32`），
+      未提供无 `_rn` 后缀的 `fmaf` 别名。
+- [ ] `roundf`（`cvt.rni.f32`）与 `fmaf` 别名 —— 属一行映射的补遗项，尚未提供。
 
 **第二批 · 需要决策**（`llvm.sin.f32` 等在 NVPTX **不会**直接落到 PTX，后端会生成对
 libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
 
-- [ ] `sinf` / `cosf` / `expf` / `logf` / `powf` —— 两种方案：
-      接 libdevice（精度 IEEE，成本高），或用近似指令（`sin.approx.f32` 等，精度约 2⁻²¹）。
-- [ ] 若走近似：**必须用 CUDA 自己的快速内建命名**（`__sinf` / `__expf`），
-      不得让 `sinf` 悄悄变成近似 —— 否则用户得到静默错误结果。
+- [ ] `sinf` / `cosf` / `expf` / `logf` / `powf`（**精确档**）—— 仍需决策：接 libdevice
+      （精度 IEEE，成本高）或维持现状。现状是 hacc **明确报错**并建议改用近似内建，不静默降级。
+- [x] 若走近似：**必须用 CUDA 自己的快速内建命名** —— 已按此原则落地：只提供
+      `__expf` / `__logf` / `__sinf` / `__cosf` / `__fdividef` / `rsqrtf`，
+      未把 `sinf` 等精确函数悄悄换成 `.approx` 实现。
 
 ### A.3 warp 原语
 

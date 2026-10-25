@@ -141,7 +141,7 @@ typedef struct __attribute__((aligned(16))) double4 {
 } double4;
 
 /* ------------------------------------------------------------------ */
-/* MMA（Tensor Core）wmma fragment（C12；ADR 0008 待批）                */
+/* MMA（Tensor Core）wmma fragment（C12；ADR 0008 已批准）              */
 /* ------------------------------------------------------------------ */
 /*
  * m16n16k16 的 fragment：A/B 各 8 个 `<2 x half>`，C/D 各 8 个 `float`，一律 **32 字节**。
