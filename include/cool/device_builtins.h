@@ -259,6 +259,45 @@ void cool_wmma_mma(cool_wmma_frag_d* d, const cool_wmma_frag_a* a, const cool_wm
                    const cool_wmma_frag_c* c);
 void cool_wmma_store_d_row(void* dst, const cool_wmma_frag_d* d);
 
+/* ------------------------------------------------------------------ */
+/* 数学内建（hacc S2 T3）—— 仅 f32，且**精度契约明确**                 */
+/* ------------------------------------------------------------------ */
+/*
+ * 由 coolicc 按名字映射到单条 PTX 指令或 NVVM intrinsic，不是函数调用。
+ *
+ * 收录原则（三条，刻意保守）：
+ *   1. **能落到单条精确指令的**收录：sqrt.rn / abs / min / max / cvt.rmi·rpi·rzi /
+ *      fma.rn / rcp.rn / sqrt.rn —— 与 CUDA 同名函数语义一致，可直接用。
+ *   2. **名字本身即「近似」语义的**收录：__expf / __logf / __sinf / __cosf / __fdividef
+ *      / rsqrtf —— CUDA 里它们的定义就是 `.approx` 指令，用户选这个名字时已接受
+ *      「精度换速度」。
+ *   3. **需要 libdevice 精确实现的**（sinf / cosf / expf / logf / powf / tanf /
+ *      atan2f / fmodf …）**不收录**：调用时 hacc 会明确报错，而不是悄悄返回一个
+ *      `.approx` 的近似值。理由：sinf 与 __sinf 在 CUDA 里是两个不同精度档，
+ *      把前者降级成后者是「静默降低精度」，比编不过更糟（同 KI 系列的口径）。
+ *
+ * 因此本头**故意只声明这 16 个**。将来接入 libdevice 再补精确版，届时逐个标注精度。
+ *
+ * 注意：这些声明**没有** `__device__` 属性（与 `__syncthreads` 一致）——它们不是
+ * 用户可定义的设备函数，而是编译器内建；加属性反而会进入 device 函数表。
+ */
+float sqrtf(float x);
+float fabsf(float x);
+float fminf(float x, float y);
+float fmaxf(float x, float y);
+float floorf(float x);
+float ceilf(float x);
+float truncf(float x);
+float rsqrtf(float x);
+float __fmaf_rn(float a, float b, float c);
+float __fsqrt_rn(float x);
+float __frcp_rn(float x);
+float __fdividef(float x, float y);
+float __expf(float x);
+float __logf(float x);
+float __sinf(float x);
+float __cosf(float x);
+
 #endif /* __COOLCC__ */
 
 #endif /* COOL_DEVICE_BUILTINS_H */

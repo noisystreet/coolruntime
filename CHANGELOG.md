@@ -9,6 +9,19 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **数学内建声明（hacc S2 T3）**：`device_builtins.h` 的 `__COOLCC__` 段新增 16 个 f32 内建
+  声明，由 coolicc 按名字映射到单条 PTX 指令：`sqrtf`、`fabsf`、`fminf`、`fmaxf`、`floorf`、
+  `ceilf`、`truncf`、`rsqrtf`、`__fmaf_rn`、`__fsqrt_rn`、`__frcp_rn`、`__fdividef`、
+  `__expf`、`__logf`、`__sinf`、`__cosf`。
+
+  **故意只声明这 16 个**：需要 libdevice 精确实现的 `sinf`/`cosf`/`expf`/`logf`/`powf` 等
+  **不声明**，因为 hacc 尚未内置它们的精确实现。用户若自行声明并调用（或 `#include
+  <math.h>`），hacc 会明确报「需要 libdevice 的精确实现」并建议改用近似内建——而不是
+  悄悄给出一个 `.approx` 的近似值。
+
+  这些声明**不带 `__device__` 属性**（与 `__syncthreads` 一致）：它们是编译器内建，加属性
+  反而会让它们进入 hacc 的设备函数表。
+
 - **`__launch_bounds__` 接受但忽略（hacc S2 T4）**：`device_builtins.h` 新增两端可见的空宏
   `#define __launch_bounds__(...)`。此前它**没有任何定义**，导致带该提示的真实代码
   **直接编不过**——coolfe++ 把 `void __launch_bounds__(256, 4) k(...)` 当成「`void` 类型的
