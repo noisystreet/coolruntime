@@ -9,6 +9,15 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **`__launch_bounds__` 接受但忽略（hacc S2 T4）**：`device_builtins.h` 新增两端可见的空宏
+  `#define __launch_bounds__(...)`。此前它**没有任何定义**，导致带该提示的真实代码
+  **直接编不过**——coolfe++ 把 `void __launch_bounds__(256, 4) k(...)` 当成「`void` 类型的
+  变量声明」，报 `incomplete type "void" is not allowed` 与 `expected a ";"`。
+  展开为空而非映射到 PTX `.maxntid` / `.minnctapersm`：设备端目前 `-O0`、不做寄存器压力
+  优化，映射无收益；而拒绝它会让工程代码无法迁移。行为与不带该提示时**完全相同**。
+  回归用例在 hacc：`tests/golden/e2e/launch_bounds.cu`（单参 / 双参 + 真机数值校验；
+  反向验证：去掉本宏后该用例在编译阶段失败）。
+
 - **wmma fragment 与内建声明（MMA / hacc C12 的 A1）**：`device_builtins.h` 新增 4 个
   fragment 类型（`cool_wmma_frag_a` / `_b` / `_c` / `_d`，各 32 字节、对齐 4）与 5 条内建
   声明（`cool_wmma_load_a_row` / `_b_col` / `_c_row`、`cool_wmma_mma`、`cool_wmma_store_d_row`），
