@@ -61,8 +61,11 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
 
 ### A.4 其他内建
 
-- [ ] `__ldg`（只读数据缓存加载）—— **需先 spike**：要同时确认「NVPTX 侧如何让 load 生成
-      `ld.global.nc`」与「按实参类型重载」两件事，未验证前不铺（P6 R5 把它单列，不混进第一批）。
+- [ ] `__ldg`（只读数据缓存加载）—— **spike 已过，实现路径明确**（结论见 hacc TODO C15）：
+      LLVM 侧必须 `addrspace(1)` + `!invariant.load` 两条件齐备才出 `ld.global.nc`
+      （generic 上单加 metadata 无效），ptxas sm_89 已验证可汇编。
+      待实现时注意：声明**不带 `__device__`**（否则撞 KI-5），并把「传 shared/local
+      指针是未定义行为」写进头注释。
 - [x] 位操作：`__popc` / `__clz` / `__ffs` / `__brev` —— P6 R5 第一批，hacc 侧已映射到
       `popc.b32` / `clz.b32` / `brev.b32`；`__ffs` 走 `cttz + 1` 且**特判 0**（否则 `__ffs(0)`
       静默返回 33）。边界值在 hacc 的 `int_builtins.cu` 里逐个断言。
