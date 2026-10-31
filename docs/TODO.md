@@ -108,6 +108,15 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
       优先级：纯主机侧（设备属性 / 错误码 → 2D·pitch 内存族 → JIT 选项）先做，
       设备侧（warp 原语 / 位操作 / printf·assert / 动态共享内存）一律带 spike 前置、跨仓成对推进。
       **三个开工前置 spike**：warp intrinsic 形态、`extern __shared__` 的 IL 形态、可变参调用与聚合返回值。
+- [ ] **`coolDeviceSetLimit`（补录：此前只在 hacc 侧被提及，本清单一直没有条目）**：
+      两个 limit 各有硬需求，且都**不需要任何 spike**（纯主机侧，Driver `cuCtxSetLimit` 一一对应）：
+      - `coolLimitStackSize`：调大 per-thread 调用栈。默认 1 KiB ≈ 30 层递归，**超出后是静默错值**
+        （`coolDeviceSynchronize` 返 999 但结果保持初值），见 hacc `docs/known-issues.md` **KI-4**；
+        hacc 的 `docs/TODO.md` C11 里写着「若要排期 coolrt 封装 `coolDeviceSetLimit`」——
+        本条就是把它落到真相清单里。
+      - `coolLimitPrintfFifoSize`：设备端 printf 的配套（R6 的一半前置；printf 本身仍需 S3 spike）。
+      **验收**：`coolDeviceSetLimit` + `coolDeviceGetLimit` 往返一致；用 hacc 的
+      `tests/golden/e2e/recursion.cu` 把栈调大后 n=50 的用例由失败转通过（该用例当前是 KI-4 的回归锚点）。
 
 ---
 
