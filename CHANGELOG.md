@@ -9,6 +9,29 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **块级归约栅栏声明：`__syncthreads_count` / `__syncthreads_and` / `__syncthreads_or`（P6 R7）**：
+  「`__syncthreads()` + 对谓词的块内归约」一次完成，由 hacc 映射到 PTX `bar.red.{popc,and,or}`。
+
+  头注释写清三条使用约束：① 三个都必须由**块内全部线程**执行（同 `__syncthreads`
+  的收敛约束，只让部分线程调用是死锁且不报错）；② 返回统一 `int`，`.and/.or` 的
+  硬件结果是谓词、实现里用 `selp.b32` 归一到 0/1，**用户只该判断「非 0」**，不要
+  依赖具体非零值；③ 映射方式注明是内联汇编 —— **LLVM 19 没有对应 NVVM intrinsic**
+  （`llvm.nvvm.bar.red.*` 会被当成普通外部函数，生成未定义 call），这条写在这里
+  是为了避免下次有人「顺手改成 intrinsic」。
+
+- **`roundf` / `rintf` / `fmaf` 声明（数学内建补遗）**：补齐 `roundf`（`cvt.rni` 的
+  TODO 遗留项）与 `fmaf` 别名。
+
+  **`roundf` 的映射与原 TODO 里的判断相反，必须记一笔**：原条目写的是
+  「`roundf`（`cvt.rni.f32`）」，但 spike 实测 NVPTX 把 `llvm.rint`/`llvm.nearbyint`
+  都降到 `cvt.rni` —— `.rni` 是 **rint 语义（.5 到偶数）**，而 CUDA `roundf` 是
+  **.5 远离零**。照原 TODO 映射，`roundf(2.5)` 会返回 2 而非 3，且能编、能跑、
+  自测全绿。实际采用 `llvm.round.f32`（展开成 `copysign(0.5,x)+add.rn+cvt.rzi`
+  加边界 select，约 8 条指令）。头里把两档取整语义并列写清，防再混。
+
+- **`__ldg` 向量重载（`float4` / `int4` / `uint4`）**：补齐「向量版待补」那一项。
+  向量与标量走同一条翻译路径（load 宽度由调用表达式类型决定），hacc 侧无需改动。
+
 - **`__ldg`（只读数据缓存加载，P6 R5 第二批）**：声明 4 个标量重载
   （`int` / `unsigned int` / `float` / `double`），由 hacc 映射为 PTX `ld.global.nc`
   （非相干只读缓存）。**向量版（`float4` 等）待补**。

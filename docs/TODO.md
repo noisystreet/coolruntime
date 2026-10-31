@@ -38,7 +38,15 @@
       （`sqrt.rn` / `rsqrt.approx` / `abs` / `min` / `max` / `cvt.rmi·rpi·rzi`）。
 - [x] `fmaf` 的精确档 —— 按 CUDA 命名收录为 **`__fmaf_rn`**（`fma.rn.f32`），
       未提供无 `_rn` 后缀的 `fmaf` 别名。
-- [ ] `roundf`（`cvt.rni.f32`）与 `fmaf` 别名 —— 属一行映射的补遗项，尚未提供。
+- [x] `roundf` 与 `fmaf` 别名 —— **已完成，但原判断有误，值得记一笔**。
+      原条目写的是「`roundf`（`cvt.rni.f32`）」：**错的**。spike 实测 NVPTX 把
+      `llvm.rint` / `llvm.nearbyint` 都降到 `cvt.rni.f32.f32` —— `.rni` 是
+      **rint 语义（.5 舍入到偶数）**，而 CUDA `roundf` 是 **.5 远离零**。
+      照原判断实现，`roundf(2.5)` 会返回 2 而不是 3，且能编、能跑、自测全绿
+      （只有 .5 边界值能发现）。实际映射为 `llvm.round.f32`，展开成
+      `copysign(0.5,x)+add.rn+cvt.rzi` 加两个边界 select（约 8 条指令）。
+      同时补了 `rintf`（单条 `cvt.rni`），两者在 hacc 的 `round_fma.cu` 里用
+      同一组 .5 输入**互相区分**。`make check` 252/252。
 
 **第二批 · 需要决策**（`llvm.sin.f32` 等在 NVPTX **不会**直接落到 PTX，后端会生成对
 libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
@@ -50,6 +58,13 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
       未把 `sinf` 等精确函数悄悄换成 `.approx` 实现。
 
 ### A.3 warp 原语
+
+> **块级归约已单独落地**（P6 R7，不在 warp 原语之列）：`__syncthreads_count/_and/_or`
+> 已随本轮完成，映射到 PTX `bar.red.{popc,and,or}`。**关键实测**：LLVM 19 没有
+> `llvm.nvvm.bar.red.*` intrinsic（会被当成普通外部函数、生成未定义 call），
+> 故 hacc 侧用内联汇编发射；`bar.red` 是**三个**操作数 `d, a, c`（中间是参与
+> 线程数，`0` = 取块大小），少写一个只在 ptxas 阶段报 `Arguments mismatch`。
+> 下面这些 warp 原语**仍未做**。
 
 > **前置已解除**：hacc 的位运算符（`<<` `>>` `&` `|` `^` `~`）已在 hacc TODO B9 补完，
 > warp 代码的典型写法（`threadIdx.x & 0x1F`、`srcLane ^ 1`）现在能正常编译。
@@ -64,7 +79,12 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
 - [x] `__ldg`（只读数据缓存加载）—— P6 R5 第二批，hacc 侧已映射到 `ld.global.nc`。
       标量 4 个重载（`int` / `unsigned int` / `float` / `double`），**向量版待补**。
       两条红线（写在头注释里）：强承诺不是提示、只能传全局内存指针。
-- [ ] `__ldg` 的向量重载（`float4` / `int4` / `uint4` 等）
+- [x] `__ldg` 的向量重载（`float4` / `int4` / `uint4`）—— 已完成。与标量走同一条
+      翻译路径（load 宽度由调用表达式类型决定），hacc 侧零改动；golden 断言追加
+      `ld.global.nc.v4`，证明是 128 位单次读而不是 4 条标量读。
+      **顺带暴露一个语言子集缺口**：`out4[i].x = ...` 这类**成员左值** hacc 尚不支持
+      （报「不支持的左值表达式」），已登记 hacc TODO C16，故用例写法为
+      「聚合整体赋值 + 成员只读」。
 - [x] 位操作：`__popc` / `__clz` / `__ffs` / `__brev` —— P6 R5 第一批，hacc 侧已映射到
       `popc.b32` / `clz.b32` / `brev.b32`；`__ffs` 走 `cttz + 1` 且**特判 0**（否则 `__ffs(0)`
       静默返回 33）。边界值在 hacc 的 `int_builtins.cu` 里逐个断言。

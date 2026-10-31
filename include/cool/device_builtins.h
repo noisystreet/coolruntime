@@ -192,6 +192,25 @@ extern unsigned int warpSize;
 /* 内建函数：由 coolicc 按名字映射到 NVVM intrinsic（llvm.nvvm.barrier0 等）。 */
 void __syncthreads(void);
 
+/* 块级归约栅栏（P6 R7）：__syncthreads() + 对谓词的块内归约，一次完成。
+ *
+ *   __syncthreads_count(p) → 返回块内 p != 0 的线程数（u32）
+ *   __syncthreads_and(p)   → 块内**所有**线程 p != 0 时返回非 0，否则 0
+ *   __syncthreads_or(p)    → 块内**任一**线程 p != 0 时返回非 0，否则 0
+ *
+ * 三个都必须由**块内全部线程**执行（与 __syncthreads 相同的收敛约束），
+ * 在条件分支里只让部分线程调用是死锁，不报错。
+ *
+ * 映射到 PTX `bar.red.{popc,and,or}`。注意 **LLVM 19 没有对应的 NVVM intrinsic**
+ * （实测 `llvm.nvvm.bar.red.*` 会被当成普通外部函数、生成未定义 call），
+ * 故 hacc 侧用内联汇编发射，形如 `bar.red.popc.u32 $0, %p;`。
+ *
+ * 返回类型统一 `int`（与 CUDA 一致）；`.and/.or` 的硬件结果是谓词，实现里用
+ * `selp.b32` 归一到 0/1 —— 用户只需判断「非 0」，不要依赖具体非零值。 */
+int __syncthreads_count(int predicate);
+int __syncthreads_and(int predicate);
+int __syncthreads_or(int predicate);
+
 /* 内存栅栏（S1/M4.3）：映射到 llvm.nvvm.membar.{gl,cta,sys}。
  * 语义与 CUDA 一致：__threadfence 影响设备全局可见顺序，__threadfence_block
  * 限于线程块内，__threadfence_system 覆盖主机与对等设备。三者均无参。 */
@@ -276,7 +295,17 @@ void cool_wmma_store_d_row(void* dst, const cool_wmma_frag_d* d);
  *      `.approx` 的近似值。理由：sinf 与 __sinf 在 CUDA 里是两个不同精度档，
  *      把前者降级成后者是「静默降低精度」，比编不过更糟（同 KI 系列的口径）。
  *
- * 因此本头**故意只声明这 16 个**。将来接入 libdevice 再补精确版，届时逐个标注精度。
+ * 因此本头**故意只声明这 19 个**。将来接入 libdevice 再补精确版，届时逐个标注精度。
+ *
+ * 两处需要单独说明的取整语义（**别混，混了就是静默错值**）：
+ *   - `rintf`  → 就近取整、**.5 舍入到偶数**（2.5 → 2），单条 `cvt.rni.f32.f32`；
+ *   - `roundf` → 就近取整、**.5 远离零**（2.5 → 3、-0.5 → -1），即 CUDA 语义。
+ *     PTX **没有**一条指令能表达 ties-away，LLVM 的 `llvm.round.f32` 会展开成
+ *     `copysign(0.5,x) + add.rn + cvt.rzi` 加两个边界 select（约 8 条指令）。
+ *     spike 实测：直接拿 `cvt.rni` 当 `roundf` 是**错的**（那是 rintf 的语义）。
+ *
+ * 另：`fmaf` 与 `__fmaf_rn` 是同一件事（都是 `fma.rn.f32`），保留后者是为了与
+ * CUDA 的显式精度命名对齐；两者都收，避免用户写 `fmaf` 却编不过。
  *
  * 注意：这些声明**没有** `__device__` 属性（与 `__syncthreads` 一致）——它们不是
  * 用户可定义的设备函数，而是编译器内建；加属性反而会进入 device 函数表。
@@ -288,8 +317,11 @@ float fmaxf(float x, float y);
 float floorf(float x);
 float ceilf(float x);
 float truncf(float x);
+float roundf(float x);
+float rintf(float x);
 float rsqrtf(float x);
 float __fmaf_rn(float a, float b, float c);
+float fmaf(float a, float b, float c);
 float __fsqrt_rn(float x);
 float __frcp_rn(float x);
 float __fdividef(float x, float y);
@@ -347,12 +379,17 @@ unsigned long long clock64(void);
  * （与 CUDA 一致）：实现会把指针 `cvta.to.global` 后再读，指向的区域根本不对，
  * 且不会报错。
  *
- * 第一批只收录标量；向量的 `__ldg`（`float4` / `int4` 等）待补。
+ * 标量 4 个重载 + 向量 3 个（P6 R5 第二批续）。向量的道理与标量完全一样：
+ * hacc 侧按**调用表达式的类型**决定 load 宽度，不需要另做重载分派机制 ——
+ * `__ldg(&v4[i])` 的类型是 `float4`，于是发 `ld.global.nc.v4.f32` 一条指令。
  */
 int __ldg(const int* p);
 unsigned int __ldg(const unsigned int* p);
 float __ldg(const float* p);
 double __ldg(const double* p);
+float4 __ldg(const float4* p);
+int4 __ldg(const int4* p);
+uint4 __ldg(const uint4* p);
 
 #endif /* __COOLCC__ */
 
