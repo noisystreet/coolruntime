@@ -9,6 +9,20 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **整数内建与核内计时声明（P6 R5 第一批）**：`device_builtins.h` 的 `__COOLCC__` 段新增
+  `__popc` / `__clz` / `__ffs` / `__brev` / `clock()` / `clock64()` 六个声明，由 hacc 的
+  coolicc 映射到单条 PTX 指令（`popc.b32` / `clz.b32` / `brev.b32` / `%clock` / `%clock64`；
+  `__ffs` 走 `cttz + 1` 且对 0 特判）。
+
+  **边界语义写进头注释，并在 hacc 的 e2e 里逐个断言**：`__clz(0) == 32`、`__ffs(0) == 0`、
+  `__ffs` 是 **1-based** —— 这几条少一个特判就是静默错值（实测去掉特判后返回 33）。
+
+  计时**与 CUDA 的差异**：`clock()` 返回 `unsigned int`（CUDA 的 `clock_t` 在 Linux 上是
+  `long`），`clock64()` 返回 `unsigned long long`；不为计时引入平台相关的 `clock_t`。
+  两者**只能做差**：同一 SM 内单调递增，跨 SM 不保证，绝对值无跨设备意义。
+
+  `__ldg` **本批不做**：需先 spike「NVPTX 如何生成 `ld.global.nc`」与「按实参类型重载」。
+
 - **`coolDeviceGetAttribute` + 设备属性补全（P6 R1）**：新增公开 API
   `coolError_t coolDeviceGetAttribute(int* value, coolDeviceAttribute attr, int device)`，
   枚举 `coolDeviceAttribute` 的取值**按 cudart 的 `cudaDeviceAttr` 编号**（22 项：块/网格维度上限、

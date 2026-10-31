@@ -61,9 +61,13 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
 
 ### A.4 其他内建
 
-- [ ] `__ldg`（只读数据缓存加载）
-- [ ] 位操作：`__popc` / `__clz` / `__ffs` / `__brev`
-- [ ] `clock()` / `clock64()`（内核内计时）
+- [ ] `__ldg`（只读数据缓存加载）—— **需先 spike**：要同时确认「NVPTX 侧如何让 load 生成
+      `ld.global.nc`」与「按实参类型重载」两件事，未验证前不铺（P6 R5 把它单列，不混进第一批）。
+- [x] 位操作：`__popc` / `__clz` / `__ffs` / `__brev` —— P6 R5 第一批，hacc 侧已映射到
+      `popc.b32` / `clz.b32` / `brev.b32`；`__ffs` 走 `cttz + 1` 且**特判 0**（否则 `__ffs(0)`
+      静默返回 33）。边界值在 hacc 的 `int_builtins.cu` 里逐个断言。
+- [x] `clock()` / `clock64()`（内核内计时）—— 映射到 `%clock` / `%clock64`。返回
+      `unsigned int` / `unsigned long long`（**不是** CUDA 的 `clock_t`），两者只能做差。
 - [ ] `make_float3` 等向量构造函数
 - [ ] 向量类型覆盖：`char4` / `uchar4` / `short2` / `ushort2` / `longlong2`
 

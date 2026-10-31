@@ -298,6 +298,39 @@ float __logf(float x);
 float __sinf(float x);
 float __cosf(float x);
 
+/* ------------------------------------------------------------------ */
+/* 整数单指令内建 + 内核内计时（P6/R5 第一批）                          */
+/* ------------------------------------------------------------------ */
+/*
+ * 与数学内建同一套纪律：**一个名字 → 一条（或明确几步）PTX 指令**，由 coolicc
+ * 按名字映射，不是函数调用；声明本身同样不带 `__device__` 属性。
+ *
+ * 边界值逐条写明 —— 这几条正是「静默错值」的高发区：
+ *   - `__popc(x)`  置位数（0..32）                                  → `popc.b32`
+ *   - `__clz(x)`   前导零个数（0..32），**`__clz(0) == 32`**         → `clz.b32`
+ *   - `__ffs(x)`   最低位 1 的**1-based**位置（0..32），**`__ffs(0) == 0`**
+ *                  → `cttz(x) + 1`，且 x==0 时特判为 0（CTZ 对 0 给出 32）
+ *   - `__brev(x)`  32 位位序反转                                    → `brev.b32`
+ *
+ * 计时（核内读数，单位是 SM 时钟周期，可用来算区间耗时）：
+ *   - `clock()`   → PTX `%clock`（**32 位**，溢出后回绕）
+ *   - `clock64()` → PTX `%clock64`（64 位）
+ *   **与 CUDA 的差异**：CUDA 的 `clock()` 返回 `clock_t`（Linux 上是 `long`）；
+ *   本仓直接返回 `unsigned int` / `unsigned long long`，不为计时引入平台相关的
+ *   `clock_t` 定义。差值语义与 CUDA 一致：同一 SM 内单调递增，跨 SM 不保证。
+ *   注意两者**只能做差**，绝对值无跨设备意义。
+ *
+ * `__clz` / `__ffs` 取 `int`、`__popc` / `__brev` 取 `unsigned int`：与 CUDA 签名
+ * 一致。位操作本身不区分符号性，重载只为让签名对齐。
+ */
+int __popc(unsigned int x);
+int __clz(int x);
+int __ffs(int x);
+unsigned int __brev(unsigned int x);
+
+unsigned int clock(void);
+unsigned long long clock64(void);
+
 #endif /* __COOLCC__ */
 
 #endif /* COOL_DEVICE_BUILTINS_H */
