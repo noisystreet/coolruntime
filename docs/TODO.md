@@ -90,9 +90,15 @@ libdevice `__nv_sinf` 的调用，需链接 `libdevice.10.bc`）
       由后端循环调用 `cuFuncGetAttribute` 填充。
       与 cudart 的差异：不含 `binaryVersion` / `cacheModeCA` / cluster 字段，字段只增不改。
 
-### B.3 接口补齐规划（P6）—— 已立项，未开工
+### B.3 接口补齐规划（P6）—— R1 / R2 已完成，其余未开工
 
-- [ ] 按主题分档补齐缺失接口，计划见 **[runtime-api-plan.md](runtime-api-plan.md)**。
+- [x] **R1 设备属性 + R2 错误码** —— `coolDeviceGetAttribute` + `coolDeviceProp` 追加 10 个字段；
+  `coolError_t` 11 → 31 项（`NO_DEVICE` 与内核执行期错误各自有了专码）。
+  详见 [runtime-api-plan.md](runtime-api-plan.md) §R1 / §R2 与 CHANGELOG。
+  **遗留决策项**：3 处历史数值与 cudart 不同（`InvalidDevice` 10 vs 101、
+  `MemoryAllocation` 3 vs `InitializationError`、`HostMemory*` 711/712 vs 712/713），
+  本轮刻意未改（改即破坏 ABI），现状由 `cool_types.h` 注释与 `test_error` 锚点锁住。
+- [ ] 其余子项（R3–R9）按 **[runtime-api-plan.md](runtime-api-plan.md)** 分档推进。
       优先级：纯主机侧（设备属性 / 错误码 → 2D·pitch 内存族 → JIT 选项）先做，
       设备侧（warp 原语 / 位操作 / printf·assert / 动态共享内存）一律带 spike 前置、跨仓成对推进。
       **三个开工前置 spike**：warp intrinsic 形态、`extern __shared__` 的 IL 形态、可变参调用与聚合返回值。

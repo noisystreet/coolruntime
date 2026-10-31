@@ -43,7 +43,7 @@ B 层：后端抽象层 BAL (src/backend/cool_backend.h)
 | --- | --- |
 | 版本管理 | `coolRuntimeGetVersion` / `coolDriverGetVersion` |
 | 错误处理 | `coolGetErrorString` / `coolGetErrorName` / `coolGetLastError` / `coolPeekAtLastError` |
-| 设备管理 | `coolGetDeviceCount` / `coolSetDevice` / `coolGetDevice` / `coolGetDeviceProperties` / `coolDeviceSynchronize` / `coolDeviceReset` / `coolDeviceGetStreamPriorityRange` |
+| 设备管理 | `coolGetDeviceCount` / `coolSetDevice` / `coolGetDevice` / `coolGetDeviceProperties` / **`coolDeviceGetAttribute`** / `coolDeviceSynchronize` / `coolDeviceReset` / `coolDeviceGetStreamPriorityRange` |
 | 内存管理 | `coolMalloc` / `coolFree` / `coolMemcpy` / `coolMemset` / `coolMemGetInfo` / `coolMallocHost` / `coolFreeHost` |
 | 异步与页锁定 | `coolMemcpyAsync` / `coolMemsetAsync` / `coolHostRegister` / `coolHostUnregister` |
 | 流管理 | `coolStreamCreate` / `coolStreamCreateWithFlags` / `coolStreamCreateWithPriority` / `coolStreamDestroy` / `coolStreamSynchronize` / `coolStreamQuery` / `coolStreamWaitEvent` / `coolStreamGetPriority` / `coolStreamGetFlags` |

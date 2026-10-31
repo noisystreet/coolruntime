@@ -1,6 +1,6 @@
 # Runtime 接口补齐规划（P6）
 
-> 状态：**规划中**（2026-10 立项，未开工）。本文只定义「补什么、按什么顺序、怎么验收」，不替代
+> 状态：**进行中**（2026-10 立项；**R1 / R2 已完成**，R3–R9 未开工）。本文只定义「补什么、按什么顺序、怎么验收」，不替代
 > [TODO.md](TODO.md)（活清单）与 [ARCHITECTURE.md](ARCHITECTURE.md)（范围与 Non-Goals）。
 > 清点依据：`include/cool/*.h` 四个头文件 + `src/api/` 七个实现单元的**只读清点**（2026-10）。
 > **实现细节未逐行核对**，凡依赖实现内部行为的判断都在文中标注「未核对」。
@@ -50,7 +50,7 @@
 
 ## 3. 子项
 
-### R1 设备属性与限制（**优先**，纯主机侧）
+### R1 设备属性与限制（✅ **已完成**，纯主机侧）
 
 **问题**：`coolGetDeviceProperties` 只填 8 个字段（`coolDeviceProp`），而 `cudaDeviceProp` 有上百个；
 且**没有** `coolDeviceGetAttribute`。真实代码里 `cudaDeviceGetAttribute(&v, cudaDevAttrMaxSharedMemoryPerBlock, 0)`
@@ -74,7 +74,7 @@
 未支持的 attr 返回 `coolErrorNotSupported` 而非 0；无设备环境下按现有三态探针走 SKIP。
 **风险**：低。最大风险是枚举编号抄错 → 用「属性 ↔ 枚举值 ↔ 字段名」三者交叉断言。
 
-### R2 错误码补全（**优先**，纯主机侧）
+### R2 错误码补全（✅ **已完成**，纯主机侧）
 
 **问题**：`coolError_t` 只有 11 个。blockDim 超限、非法访存、启动失败、显存不足的「原因」无法区分，
 统一落到 `coolErrorInvalidValue` / `coolErrorUnknown`，排障成本高。
@@ -246,7 +246,7 @@ waitValue32 需一个 kernel 侧写标志 + host 侧等待的 e2e。
 
 | 阶段 | 项 | 跨仓 | 量级 |
 | --- | --- | --- | --- |
-| 1 | R1 设备属性 + R2 错误码 | 否 | 小（各半天～1 天） |
+| 1 | R1 设备属性 + R2 错误码 ✅ **已完成** | 否 | 小（各半天～1 天） |
 | 2 | R5 位操作 / 向量补全（先 S3 中「位操作」部分） | 是 | 小（每项一个映射 + 一个 e2e） |
 | 3 | R3 2D / pitch 族 | 否（主机侧） | 中（1～2 天，形态多、易漏 offset） |
 | 4 | R7 静态侧的 `bar.red` + R8 流补遗 | 半（bar.red 是跨仓） | 中 |

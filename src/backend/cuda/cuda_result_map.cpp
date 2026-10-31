@@ -15,12 +15,17 @@ struct Mapping {
 /*
  * 只映射语义明确等价的错误码。
  *
- * 刻意**不**列入的（保留为 coolErrorUnknown）：
- *   - 内核运行期错误：CUDA_ERROR_LAUNCH_FAILED / ILLEGAL_ADDRESS /
- *     LAUNCH_TIMEOUT / LAUNCH_OUT_OF_RESOURCES 等
- *   - 权限/驱动状态类：CUDA_ERROR_NOT_PERMITTED / INSUFFICIENT_LOADER_VERSION 等
- * 把它们硬映射成 coolErrorInvalidValue 会把「内核跑炸了」误导成「参数传错了」，
- * 比报 unknown 更糟。
+ * P6 R2 起有了独立的「内核执行期」错误码，原先只能保留 Unknown 的那批
+ * （LAUNCH_FAILED / ILLEGAL_ADDRESS / LAUNCH_TIMEOUT / LAUNCH_OUT_OF_RESOURCES 等）
+ * 已按语义映射；原则不变：**绝不把内核跑炸了报成 coolErrorInvalidValue**，
+ * 那会把「kernel 出错」误导成「参数传错了」。
+ *
+ * 仍保留 Unknown 的：权限/驱动状态类（CUDA_ERROR_NOT_PERMITTED /
+ * INSUFFICIENT_LOADER_VERSION 等）与本仓未收录的码 —— 宁可报 unknown，
+ * 也不猜一个语义相近的码。
+ *
+ * 映射按**枚举符号**而非数值：coolError_t 的少数既有数值与 cudart 不同
+ * （见 cool_types.h 的「已知数值差异」），这不影响本表正确性。
  *
  * 注意 coolErrorMemoryAllocation 在这里没有对应项：Driver API 分配失败只有
  * CUDA_ERROR_OUT_OF_MEMORY，没有单独的 allocation 错误码（那是 Runtime 的
@@ -35,9 +40,9 @@ constexpr Mapping kMappings[] = {
     {CUDA_ERROR_INVALID_VALUE, coolErrorInvalidValue},
     {CUDA_ERROR_OUT_OF_MEMORY, coolErrorOutOfMemory},
 
-    /* 设备 */
+    /* 设备：序号非法与「没有可用设备」必须可区分（P6 R2） */
     {CUDA_ERROR_INVALID_DEVICE, coolErrorInvalidDevice},
-    {CUDA_ERROR_NO_DEVICE, coolErrorInvalidDevice},
+    {CUDA_ERROR_NO_DEVICE, coolErrorNoDevice},
 
     /* 句柄 */
     {CUDA_ERROR_INVALID_HANDLE, coolErrorInvalidResourceHandle},
@@ -52,12 +57,25 @@ constexpr Mapping kMappings[] = {
     {CUDA_ERROR_DEINITIALIZED, coolErrorNotReady},
     {CUDA_ERROR_NOT_SUPPORTED, coolErrorNotSupported},
 
-    /* 上下文与模块镜像：均属「传进来的东西不对」 */
+    /* 上下文：传进来的上下文不对（仍属参数类） */
     {CUDA_ERROR_INVALID_CONTEXT, coolErrorInvalidValue},
-    {CUDA_ERROR_INVALID_IMAGE, coolErrorInvalidValue},
-    {CUDA_ERROR_INVALID_SOURCE, coolErrorInvalidValue},
-    {CUDA_ERROR_INVALID_PTX, coolErrorInvalidValue},
-    {CUDA_ERROR_FILE_NOT_FOUND, coolErrorInvalidValue},
+    /* PTX 非法：hacc 生成的映像有问题，与「参数」不同（P6 R2 收窄） */
+    {CUDA_ERROR_INVALID_PTX, coolErrorInvalidKernelImage},
+
+    /* 镜像 / 源码 / 文件（P6 R2：有专码后不再笼统归为 InvalidValue） */
+    {CUDA_ERROR_INVALID_IMAGE, coolErrorInvalidKernelImage},
+    {CUDA_ERROR_INVALID_SOURCE, coolErrorInvalidSource},
+    {CUDA_ERROR_FILE_NOT_FOUND, coolErrorFileNotFound},
+
+    /* 内核执行期（P6 R2 新增映射） */
+    {CUDA_ERROR_ILLEGAL_ADDRESS, coolErrorIllegalAddress},
+    {CUDA_ERROR_MISALIGNED_ADDRESS, coolErrorMisalignedAddress},
+    {CUDA_ERROR_INVALID_ADDRESS_SPACE, coolErrorInvalidAddressSpace},
+    {CUDA_ERROR_INVALID_PC, coolErrorInvalidPc},
+    {CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES, coolErrorLaunchOutOfResources},
+    {CUDA_ERROR_LAUNCH_TIMEOUT, coolErrorLaunchTimeout},
+    {CUDA_ERROR_LAUNCH_INCOMPATIBLE_TEXTURING, coolErrorLaunchIncompatibleTexturing},
+    {CUDA_ERROR_LAUNCH_FAILED, coolErrorLaunchFailure},
 };
 
 }  // namespace

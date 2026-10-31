@@ -73,3 +73,12 @@ extern "C" coolError_t coolDeviceGetStreamPriorityRange(int* leastPriority, int*
     COOL_API_GUARD(backend->deviceGetStreamPriorityRange(leastPriority, greatestPriority));
     return coolSuccess;
 }
+
+extern "C" coolError_t coolDeviceGetAttribute(int* value, coolDeviceAttribute attr, int device) {
+    if (value == nullptr) {
+        COOL_API_RETURN(coolErrorInvalidValue);
+    }
+    COOL_API_ENTER(deviceGetAttribute);
+    COOL_API_GUARD(backend->deviceGetAttribute(value, attr, device));
+    return coolSuccess;
+}

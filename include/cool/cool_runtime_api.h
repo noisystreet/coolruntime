@@ -66,6 +66,22 @@ coolError_t coolGetDevice(int* device);
 /* 填充简化版设备属性。 */
 coolError_t coolGetDeviceProperties(coolDeviceProp* prop, int device);
 
+/*
+ * 查询单项设备属性（对应 cudaDeviceGetAttribute，P6 R1）。
+ *
+ * 用 `coolDeviceAttribute` 指定要查的项，结果写入 *value。属性编号与 cudart 的
+ * cudaDeviceAttr 一致，便于源码对照。
+ *
+ * 错误语义（调用方必须看返回码，不能看 *value 的初始值）：
+ *   - 未收录/未实现的属性 → coolErrorNotSupported，不写 *value；
+ *   - 非法设备序号 → coolErrorInvalidDevice，不写 *value。
+ *
+ * 与 coolGetDeviceProperties 的关系：后者是「一次填一批」的便利接口，两者对同一属性
+ * 必须给出相同数值（`test_device` 交叉断言）。真实代码里查上限的标准姿势是后者之外的
+ * 本函数，例如 `coolDevAttrMaxSharedMemoryPerBlock`。
+ */
+coolError_t coolDeviceGetAttribute(int* value, coolDeviceAttribute attr, int device);
+
 /* 等待该设备所有流完成。 */
 coolError_t coolDeviceSynchronize(void);
 

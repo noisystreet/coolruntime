@@ -9,6 +9,36 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **`coolDeviceGetAttribute` + 设备属性补全（P6 R1）**：新增公开 API
+  `coolError_t coolDeviceGetAttribute(int* value, coolDeviceAttribute attr, int device)`，
+  枚举 `coolDeviceAttribute` 的取值**按 cudart 的 `cudaDeviceAttr` 编号**（22 项：块/网格维度上限、
+  共享内存、寄存器、时钟、L2、并发内核、异步引擎、统一寻址、CC 版本等）。
+  未收录属性返回 `coolErrorNotSupported` 且**不写 `*value`** —— 「查不到」与「查到 0」必须可区分
+  （0 在 CUDA 里是合法值，如 `UnifiedAddressing` 关闭）。`coolDeviceProp` 尾部追加 10 个字段
+  （`maxThreadsDim[3]` / `sharedMemPerBlock` / `sharedMemPerMultiprocessor` / `regsPerBlock` /
+  `clockRate` / `memoryClockRate` / `globalMemoryBusWidth` / `l2CacheSize` / `unifiedAddressing`），
+  **只增不改**。两个入口（属性查询与 `coolGetDeviceProperties`）走同一张映射表，
+  `test_device` 交叉断言同源同值。
+
+- **错误码补全（P6 R2）**：`coolError_t` 从 11 项扩到 31 项，新增项的数值按 cudart 的
+  `cudaError` 编号。主要收益是可诊断性：**内核执行期错误不再与「参数传错了」混淆** ——
+  `CUresult` 的 `LAUNCH_FAILED` / `ILLEGAL_ADDRESS` / `LAUNCH_OUT_OF_RESOURCES` /
+  `LAUNCH_TIMEOUT` / `MISALIGNED_ADDRESS` / `INVALID_PC` / `INVALID_ADDRESS_SPACE` 等
+  此前只能报 `coolErrorUnknown`（当时确实没有对应码），现在各自映射到专码；
+  `NO_DEVICE` 也从 `coolErrorInvalidDevice` 改为 `coolErrorNoDevice`（「没有卡」≠「序号非法」）。
+  镜像 / 源码 / 文件类同步收窄（`INVALID_IMAGE` / `INVALID_PTX` → `InvalidKernelImage`，
+  `INVALID_SOURCE` → `InvalidSource`，`FILE_NOT_FOUND` → `FileNotFound`）。
+
+  **已知数值差异（本轮刻意未改，属历史 ABI）**：`coolErrorInvalidDevice = 10`（cudart 是 101）、
+  `coolErrorMemoryAllocation = 3`（cudart 的 3 是 InitializationError，故本仓没有该码）、
+  `coolErrorHostMemoryAlreadyRegistered = 711` / `NotRegistered = 712`（cudart 是 712 / 713）。
+  改这些值会破坏已发布 ABI，需单独变更并写迁移说明；`cool_types.h` 与 `test_error` 均显式锁住
+  现状，避免被顺手改掉。**对接请按枚举名，不要按数值跨库比对。**
+
+  验证：`test_error` 逐项锁数值锚点 + name/string 可查；`test_result_map` 覆盖新增映射与
+  「仍保留 Unknown」的边界。**反向验证**：把 `NO_DEVICE` 映射改回旧值 + 让属性查表恒返回
+  `nullptr`，14 条断言变红；恢复后 `make check` 15/15。
+
 - **接口补齐规划文档（P6）**：[docs/runtime-api-plan.md](docs/runtime-api-plan.md) 立项。
   清点现状（主机 API **52 个** + 设备内建清单），按「纯主机侧优先 / 声明先行 ≠ 能力可用 /
   可诊断性 > 功能数量」三原则分档（R1 设备属性、R2 错误码、R3 2D·pitch 内存族、R4 warp 原语、

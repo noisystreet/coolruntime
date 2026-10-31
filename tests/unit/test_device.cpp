@@ -19,6 +19,38 @@ int main() {
     COOL_CHECK(prop.maxThreadsPerBlock > 0);
     COOL_CHECK(prop.warpSize >= 1);
 
+    /* P6 R1：coolDeviceGetAttribute 与 coolGetDeviceProperties 必须同源同值。 */
+    int attr = -1;
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attr, coolDevAttrMaxThreadsPerBlock, 0), coolSuccess);
+    COOL_CHECK_EQ(attr, prop.maxThreadsPerBlock);
+
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attr, coolDevAttrWarpSize, 0), coolSuccess);
+    COOL_CHECK_EQ(attr, prop.warpSize);
+
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attr, coolDevAttrMaxBlockDimX, 0), coolSuccess);
+    COOL_CHECK_EQ(attr, prop.maxThreadsDim[0]);
+
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attr, coolDevAttrComputeCapabilityMajor, 0), coolSuccess);
+    COOL_CHECK_EQ(attr, prop.major);
+
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attr, coolDevAttrMultiProcessorCount, 0), coolSuccess);
+    COOL_CHECK_EQ(attr, prop.multiProcessorCount);
+
+    /* 新增字段必须真被填上：块共享内存与 L2 在真机上不可能为 0。 */
+    COOL_CHECK(prop.sharedMemPerBlock > 0);
+    COOL_CHECK(prop.maxThreadsDim[0] > 0);
+    COOL_CHECK(prop.l2CacheSize > 0);
+
+    /* 未收录的属性 → NotSupported，且不得写 *value（区别于「查到 0」）。 */
+    attr = -12345;
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attr, static_cast<coolDeviceAttribute>(9999), 0),
+                  coolErrorNotSupported);
+    COOL_CHECK_EQ(attr, -12345);
+
+    /* 非法设备序号 → InvalidDevice。 */
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attr, coolDevAttrWarpSize, 12345),
+                  coolErrorInvalidDevice);
+
     COOL_CHECK_EQ(coolGetDeviceProperties(&prop, 12345), coolErrorInvalidDevice);
 
     COOL_CHECK_EQ(coolSetDevice(0), coolSuccess);

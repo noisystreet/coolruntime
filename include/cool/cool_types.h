@@ -16,17 +16,60 @@
 extern "C" {
 #endif
 
-/* 错误码：coolSuccess == 0 表示成功。 */
+/*
+ * 错误码：coolSuccess == 0 表示成功。
+ *
+ * 数值按 cudart 的 cudaError 编号，便于与 CUDA 侧逐项对照（P6 R2 起）。
+ *
+ * **已知数值差异（历史 ABI，本轮未改）** —— 改这些值会破坏已发布 ABI，需单独变更：
+ *   - `coolErrorMemoryAllocation = 3`：cudart 的 3 是 cudaErrorInitializationError，
+ *     故本仓**没有** InitializationError（初始化失败统一报 coolErrorNotReady）；
+ *   - `coolErrorInvalidDevice = 10`：cudart 的 cudaErrorInvalidDevice 是 **101**，
+ *     而 10 在 cudart 是 cudaErrorVersionTranslation；
+ *   - `coolErrorHostMemoryAlreadyRegistered = 711` / `NotRegistered = 712`：
+ *     cudart 分别是 **712** / **713**（711 在 cudart 是 cudaErrorTooManyPeers）。
+ * 即：**按枚举名对接，不要按数值跨库比对**。取舍见 docs/runtime-api-plan.md §R2。
+ */
 typedef enum coolError {
     coolSuccess = 0,
     coolErrorInvalidValue = 1,
     coolErrorOutOfMemory = 2,
     coolErrorMemoryAllocation = 3,
-    coolErrorInvalidDevice = 10,
+
+    /* 配置 / 参数形态类（P6 R2 新增）。 */
+    coolErrorInvalidConfiguration = 9,
+    coolErrorInvalidDevice = 10, /* cudart = 101，见上方数值差异说明 */
+    coolErrorInvalidPitchValue = 12,
+    coolErrorInvalidSymbol = 13,
+    coolErrorInvalidDevicePointer = 17,
+    coolErrorInvalidMemcpyDirection = 21,
+    coolErrorInsufficientDriver = 35,
+
+    /* 设备可见性 / 函数与镜像（P6 R2 新增）。 */
+    coolErrorInvalidDeviceFunction = 98,
+    coolErrorNoDevice = 100,
+    coolErrorInvalidKernelImage = 200,
+    coolErrorUnsupportedLimit = 215,
+
+    /* 模块加载（P6 R2 新增）。 */
+    coolErrorInvalidSource = 300,
+    coolErrorFileNotFound = 301,
+
     coolErrorInvalidResourceHandle = 400,
     coolErrorNotReady = 600,
-    coolErrorHostMemoryAlreadyRegistered = 711,
-    coolErrorHostMemoryNotRegistered = 712,
+
+    /* 内核执行期（P6 R2 新增）。主要收益：把「kernel 跑炸了」与「参数传错了」分开。 */
+    coolErrorIllegalAddress = 700,
+    coolErrorLaunchOutOfResources = 701,
+    coolErrorLaunchTimeout = 702,
+    coolErrorLaunchIncompatibleTexturing = 703,
+    coolErrorHostMemoryAlreadyRegistered = 711, /* cudart = 712，见上方数值差异说明 */
+    coolErrorHostMemoryNotRegistered = 712,     /* cudart = 713，见上方数值差异说明 */
+    coolErrorMisalignedAddress = 716,
+    coolErrorInvalidAddressSpace = 717,
+    coolErrorInvalidPc = 718,
+    coolErrorLaunchFailure = 719,
+
     coolErrorNotSupported = 801,
     coolErrorUnknown = 999
 } coolError_t;
@@ -80,6 +123,38 @@ typedef struct dim3 {
 #endif
 } dim3;
 
+/*
+ * 设备属性查询项（P6 R1），对应 cudart 的 cudaDeviceAttr。
+ *
+ * 枚举值**按 cudart 的 cudaDeviceAttr 编号**，便于与 CUDA 源码逐行对照；只收录
+ * 实际有用、且 Driver API 有对应 CU_DEVICE_ATTRIBUTE_* 的子集。未收录的取值由
+ * coolDeviceGetAttribute 返回 coolErrorNotSupported —— 不是 0，因为「查不到」与
+ * 「查到 0」必须可区分（0 在 CUDA 里是合法取值，如 UnifiedAddressing 关闭）。
+ */
+typedef enum coolDeviceAttribute {
+    coolDevAttrMaxThreadsPerBlock = 1,
+    coolDevAttrMaxBlockDimX = 2,
+    coolDevAttrMaxBlockDimY = 3,
+    coolDevAttrMaxBlockDimZ = 4,
+    coolDevAttrMaxGridDimX = 5,
+    coolDevAttrMaxGridDimY = 6,
+    coolDevAttrMaxGridDimZ = 7,
+    coolDevAttrMaxSharedMemoryPerBlock = 8,
+    coolDevAttrWarpSize = 10,
+    coolDevAttrMaxRegistersPerBlock = 12,
+    coolDevAttrClockRate = 13,
+    coolDevAttrMultiProcessorCount = 16,
+    coolDevAttrConcurrentKernels = 31,
+    coolDevAttrMemoryClockRate = 36,
+    coolDevAttrGlobalMemoryBusWidth = 37,
+    coolDevAttrL2CacheSize = 38,
+    coolDevAttrMaxThreadsPerMultiProcessor = 39,
+    coolDevAttrAsyncEngineCount = 40,
+    coolDevAttrUnifiedAddressing = 41,
+    coolDevAttrComputeCapabilityMajor = 75,
+    coolDevAttrComputeCapabilityMinor = 76,
+    coolDevAttrMaxSharedMemoryPerMultiprocessor = 81
+} coolDeviceAttribute;
 /* 简化版设备属性，对应 cudart 的 cudaDeviceProp。 */
 typedef struct coolDeviceProp {
     char name[64];
@@ -91,6 +166,18 @@ typedef struct coolDeviceProp {
     int maxThreadsPerMultiProcessor;
     int maxGridSize[3];
     int warpSize; /* cuda 后端：真实 warp 大小 */
+
+    /* P6 R1 追加字段：只增不改，一律置于尾部（见 docs/runtime-api-plan.md §7 第 3 条）。
+     * 与 coolDeviceGetAttribute 同源，unit 测试交叉断言两者一致。 */
+    int maxThreadsDim[3];           /* 每维最大线程数 */
+    int sharedMemPerBlock;          /* 每块静态共享内存字节数 */
+    int sharedMemPerMultiprocessor; /* 每 SM 共享内存字节数 */
+    int regsPerBlock;               /* 每块可用 32 位寄存器数 */
+    int clockRate;                  /* 峰值时钟频率（kHz） */
+    int memoryClockRate;            /* 峰值显存时钟频率（kHz） */
+    int globalMemoryBusWidth;       /* 全局内存总线宽度（bit） */
+    int l2CacheSize;                /* L2 缓存字节数 */
+    int unifiedAddressing;          /* 是否与主机统一地址空间（0/1） */
 } coolDeviceProp;
 
 /* 不透明句柄：NULL 表示默认流（legacy 语义：与所有 blocking 流隐式同步；

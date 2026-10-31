@@ -31,6 +31,77 @@ using cuda::handleAddr;
 using cuda::handles;
 using cuda::resultToError;
 
+/* coolDeviceAttribute → CU_DEVICE_ATTRIBUTE_*。未列入即 NotSupported。 */
+struct DeviceAttributeMapping {
+    coolDeviceAttribute attr;
+    CUdevice_attribute cu;
+};
+
+constexpr DeviceAttributeMapping kDeviceAttributeMappings[] = {
+    {coolDevAttrMaxThreadsPerBlock, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK},
+    {coolDevAttrMaxBlockDimX, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X},
+    {coolDevAttrMaxBlockDimY, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Y},
+    {coolDevAttrMaxBlockDimZ, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Z},
+    {coolDevAttrMaxGridDimX, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_X},
+    {coolDevAttrMaxGridDimY, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Y},
+    {coolDevAttrMaxGridDimZ, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Z},
+    {coolDevAttrMaxSharedMemoryPerBlock, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK},
+    {coolDevAttrMaxSharedMemoryPerMultiprocessor,
+     CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_MULTIPROCESSOR},
+    {coolDevAttrMaxRegistersPerBlock, CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK},
+    {coolDevAttrWarpSize, CU_DEVICE_ATTRIBUTE_WARP_SIZE},
+    {coolDevAttrMultiProcessorCount, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT},
+    {coolDevAttrComputeCapabilityMajor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR},
+    {coolDevAttrComputeCapabilityMinor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR},
+    {coolDevAttrMaxThreadsPerMultiProcessor, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR},
+    {coolDevAttrClockRate, CU_DEVICE_ATTRIBUTE_CLOCK_RATE},
+    {coolDevAttrMemoryClockRate, CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE},
+    {coolDevAttrGlobalMemoryBusWidth, CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH},
+    {coolDevAttrL2CacheSize, CU_DEVICE_ATTRIBUTE_L2_CACHE_SIZE},
+    {coolDevAttrConcurrentKernels, CU_DEVICE_ATTRIBUTE_CONCURRENT_KERNELS},
+    {coolDevAttrAsyncEngineCount, CU_DEVICE_ATTRIBUTE_ASYNC_ENGINE_COUNT},
+    {coolDevAttrUnifiedAddressing, CU_DEVICE_ATTRIBUTE_UNIFIED_ADDRESSING},
+};
+
+const CUdevice_attribute* findCuAttribute(coolDeviceAttribute attr) {
+    for (const DeviceAttributeMapping& mapping : kDeviceAttributeMappings) {
+        if (mapping.attr == attr) {
+            return &mapping.cu;
+        }
+    }
+    return nullptr;
+}
+
+/*
+ * 填 coolDeviceProp 用的「尽力而为」查询：与既有字段一致，属性查询失败不改返回码
+ * （现有实现对 major/minor 等同样忽略 cuDeviceGetAttribute 的返回值）。
+ */
+int queryAttributeValue(CUdevice device, coolDeviceAttribute attr) {
+    int value = 0;
+    const CUdevice_attribute* cuAttr = findCuAttribute(attr);
+    if (cuAttr != nullptr) {
+        cuDeviceGetAttribute(&value, *cuAttr, device);
+    }
+    return value;
+}
+
+coolError_t cudaDeviceGetAttribute(int* value, coolDeviceAttribute attr, int dev) {
+    if (value == nullptr) {
+        return coolErrorInvalidValue;
+    }
+    const CUdevice_attribute* cuAttr = findCuAttribute(attr);
+    if (cuAttr == nullptr) {
+        return coolErrorNotSupported;
+    }
+
+    CUdevice device = 0;
+    const CUresult res = cuDeviceGet(&device, dev);
+    if (res != CUDA_SUCCESS) {
+        return resultToError(res);
+    }
+    return resultToError(cuDeviceGetAttribute(value, *cuAttr, device));
+}
+
 coolError_t cudaGetDeviceCount(int* count) {
     if (count == nullptr) {
         return coolErrorInvalidValue;
@@ -81,6 +152,20 @@ coolError_t cudaGetDeviceProperties(int dev, coolDeviceProp* prop) {
         return resultToError(res);
     }
     prop->totalGlobalMem = totalBytes;
+
+    /* P6 R1 追加字段：走同一张映射表，保证与 coolDeviceGetAttribute 同源同值。 */
+    prop->maxThreadsDim[0] = queryAttributeValue(device, coolDevAttrMaxBlockDimX);
+    prop->maxThreadsDim[1] = queryAttributeValue(device, coolDevAttrMaxBlockDimY);
+    prop->maxThreadsDim[2] = queryAttributeValue(device, coolDevAttrMaxBlockDimZ);
+    prop->sharedMemPerBlock = queryAttributeValue(device, coolDevAttrMaxSharedMemoryPerBlock);
+    prop->sharedMemPerMultiprocessor =
+        queryAttributeValue(device, coolDevAttrMaxSharedMemoryPerMultiprocessor);
+    prop->regsPerBlock = queryAttributeValue(device, coolDevAttrMaxRegistersPerBlock);
+    prop->clockRate = queryAttributeValue(device, coolDevAttrClockRate);
+    prop->memoryClockRate = queryAttributeValue(device, coolDevAttrMemoryClockRate);
+    prop->globalMemoryBusWidth = queryAttributeValue(device, coolDevAttrGlobalMemoryBusWidth);
+    prop->l2CacheSize = queryAttributeValue(device, coolDevAttrL2CacheSize);
+    prop->unifiedAddressing = queryAttributeValue(device, coolDevAttrUnifiedAddressing);
     return coolSuccess;
 }
 
@@ -886,6 +971,7 @@ const coolBackend* cudaBackend() {
         cudaDeviceSynchronize,                         /* deviceSynchronize */
         cudaDeviceReset,                               /* deviceReset */
         cudaDeviceGetStreamPriorityRange,              /* deviceGetStreamPriorityRange */
+        cudaDeviceGetAttribute,                        /* deviceGetAttribute */
         cudaMalloc,                                    /* malloc */
         cudaFree,                                      /* free */
         cudaMallocHost,                                /* mallocHost */

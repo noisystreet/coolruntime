@@ -34,6 +34,8 @@ typedef struct coolBackend {
     coolError_t (*deviceReset)(void);
     /* P5.5：流优先级范围（context 级，对应 cuCtxGetStreamPriorityRange）。 */
     coolError_t (*deviceGetStreamPriorityRange)(int* leastPriority, int* greatestPriority);
+    /* P6 R1：单项设备属性（对应 cuDeviceGetAttribute）。未收录的 attr 返回 NotSupported。 */
+    coolError_t (*deviceGetAttribute)(int* value, coolDeviceAttribute attr, int dev);
 
     /* 内存 */
     coolError_t (*malloc)(void** p, size_t size);

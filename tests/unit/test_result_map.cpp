@@ -31,22 +31,30 @@ int main() {
     COOL_CHECK_EQ(resultToError(CUDA_ERROR_NOT_INITIALIZED), coolErrorNotReady);
     COOL_CHECK_EQ(resultToError(CUDA_ERROR_DEINITIALIZED), coolErrorNotReady);
 
-    /* 没有可用设备。 */
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_NO_DEVICE), coolErrorInvalidDevice);
+    /* P6 R2：「没有可用设备」与「设备序号非法」必须可区分。 */
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_NO_DEVICE), coolErrorNoDevice);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_DEVICE), coolErrorInvalidDevice);
 
-    /* 上下文与模块镜像：传进来的东西不对。 */
+    /* 上下文仍是参数类；镜像/源码/文件有专码（P6 R2 收窄）。 */
     COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_CONTEXT), coolErrorInvalidValue);
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_IMAGE), coolErrorInvalidValue);
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_SOURCE), coolErrorInvalidValue);
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_PTX), coolErrorInvalidValue);
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_FILE_NOT_FOUND), coolErrorInvalidValue);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_IMAGE), coolErrorInvalidKernelImage);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_PTX), coolErrorInvalidKernelImage);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_SOURCE), coolErrorInvalidSource);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_FILE_NOT_FOUND), coolErrorFileNotFound);
 
-    /* 有意不映射：内核运行期错误不能被报成参数错误。 */
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_LAUNCH_FAILED), coolErrorUnknown);
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_ILLEGAL_ADDRESS), coolErrorUnknown);
+    /* P6 R2 的核心收益：内核执行期错误不再与「参数传错了」混淆。 */
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_LAUNCH_FAILED), coolErrorLaunchFailure);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_ILLEGAL_ADDRESS), coolErrorIllegalAddress);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_LAUNCH_TIMEOUT), coolErrorLaunchTimeout);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES), coolErrorLaunchOutOfResources);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_MISALIGNED_ADDRESS), coolErrorMisalignedAddress);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_ADDRESS_SPACE), coolErrorInvalidAddressSpace);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_INVALID_PC), coolErrorInvalidPc);
+    COOL_CHECK_EQ(resultToError(CUDA_ERROR_LAUNCH_INCOMPATIBLE_TEXTURING),
+                  coolErrorLaunchIncompatibleTexturing);
+
+    /* 仍有意保留 Unknown：本仓未收录的码，宁可报 unknown 也不猜一个近义码。 */
     COOL_CHECK_EQ(resultToError(CUDA_ERROR_ILLEGAL_INSTRUCTION), coolErrorUnknown);
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_LAUNCH_TIMEOUT), coolErrorUnknown);
-    COOL_CHECK_EQ(resultToError(CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES), coolErrorUnknown);
 
     /* 未来驱动新增的错误码同样收敛。 */
     COOL_CHECK_EQ(resultToError(static_cast<CUresult>(12345)), coolErrorUnknown);

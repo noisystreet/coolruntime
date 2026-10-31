@@ -116,6 +116,10 @@ int main() {
     COOL_CHECK_EQ(coolDeviceSynchronize(), coolErrorNotSupported);
     int driverVersion = 0;
     COOL_CHECK_EQ(coolDriverGetVersion(&driverVersion), coolErrorNotSupported);
+    /* P6 R1：假后端未实现 deviceGetAttribute → NotSupported（BAL 能力位契约）。 */
+    int attrValue = 0;
+    COOL_CHECK_EQ(coolDeviceGetAttribute(&attrValue, coolDevAttrWarpSize, 0),
+                  coolErrorNotSupported);
 
     /* 6) 后端错误码透传到返回值与 TLS。 */
     g_fake.mallocResult = coolErrorOutOfMemory;
