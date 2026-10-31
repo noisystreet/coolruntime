@@ -9,6 +9,19 @@ and this project uses semantic versioning when releases are created.
 
 ### Added
 
+- **`__ldg`（只读数据缓存加载，P6 R5 第二批）**：声明 4 个标量重载
+  （`int` / `unsigned int` / `float` / `double`），由 hacc 映射为 PTX `ld.global.nc`
+  （非相干只读缓存）。**向量版（`float4` 等）待补**。
+
+  实现上有两个条件**缺一不可**（spike 实测，见 hacc TODO C15）：指针必须在
+  **global 地址空间** 且 带 `!invariant.load` metadata。只加 metadata 而指针留在
+  generic 空间时，PTX 会静默退回普通 `ld.f32` —— 而且**数值完全正确**，
+  只有 PTX 形态断言能发现（hacc 侧已做该反向验证）。
+
+  头注释写明两条红线：① 这是**强承诺**不是优化提示，同一 kernel 内又读又写同一块
+  内存可能被编译器合并读；② 只能传**全局内存**指针，传 `__shared__` / local 是
+  未定义行为且不报错。均与 CUDA 的 `__ldg` 约束一致。
+
 - **整数内建与核内计时声明（P6 R5 第一批）**：`device_builtins.h` 的 `__COOLCC__` 段新增
   `__popc` / `__clz` / `__ffs` / `__brev` / `clock()` / `clock64()` 六个声明，由 hacc 的
   coolicc 映射到单条 PTX 指令（`popc.b32` / `clz.b32` / `brev.b32` / `%clock` / `%clock64`；

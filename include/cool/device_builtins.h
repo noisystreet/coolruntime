@@ -331,6 +331,29 @@ unsigned int __brev(unsigned int x);
 unsigned int clock(void);
 unsigned long long clock64(void);
 
+/* ------------------------------------------------------------------ */
+/* 只读数据缓存加载（P6 R5 第二批）                                     */
+/* ------------------------------------------------------------------ */
+/*
+ * `__ldg(p)` 声明「p 指向的数据在 kernel 生命周期内只读」，允许走非相干只读
+ * 缓存（PTX `ld.global.nc`），省掉 L1 一致性维护的开销。
+ *
+ * **这是一条强承诺，不是优化提示**：LLVM 的 `!invariant.load` 等价于「这块内存
+ * 在本函数内不会变」。若同一 kernel 内既 `__ldg` 又写同一块内存，编译器可能把
+ * 重复读合并成一次 —— 与 CUDA 的 `__ldg` 约束一致（用户承诺只读），
+ * hacc 侧**不做任何检查**。
+ *
+ * **红线：只能传指向全局内存的指针**。传 `__shared__` / local 指针是未定义行为
+ * （与 CUDA 一致）：实现会把指针 `cvta.to.global` 后再读，指向的区域根本不对，
+ * 且不会报错。
+ *
+ * 第一批只收录标量；向量的 `__ldg`（`float4` / `int4` 等）待补。
+ */
+int __ldg(const int* p);
+unsigned int __ldg(const unsigned int* p);
+float __ldg(const float* p);
+double __ldg(const double* p);
+
 #endif /* __COOLCC__ */
 
 #endif /* COOL_DEVICE_BUILTINS_H */
